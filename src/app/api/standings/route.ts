@@ -1,50 +1,52 @@
 import { NextResponse } from "next/server";
-import { buildLeaderboard } from "@/lib/scoring-engine";
-import { PARTICIPANTS } from "@/lib/participants";
-import type { ParticipantScoreBreakdown } from "@/lib/types";
+import { buildLeaderboard, calculateParticipantScore } from "@/lib/scoring-engine";
+import { PARTICIPANTS, MATCHES } from "@/lib/participants";
+import type { Fixture, KillerGoals } from "@/lib/types";
 
 /**
  * GET /api/standings
  *
- * Returns the current leaderboard.
- * In production, breakdowns are fetched from the database (calculated by the cron worker).
- * Here we return the skeleton with all 106 participants at 0 points until
- * real fixture data is available.
+ * Returns the current leaderboard calculated from MATCHES static data.
+ * Scores update in real time as match results are added to participants.ts
+ * (or synced via /api/cron/sync-scores when the API is active).
  */
 export async function GET() {
-  // Skeleton breakdowns — replaced by real data from DB in production
-  const skeletonBreakdowns: ParticipantScoreBreakdown[] = PARTICIPANTS.map((p) => ({
-    participantId: p.id,
-    participantName: p.name,
-    matchPredictions: [],
-    goalkeeperMatches: [],
-    killerMundial: {
-      killerName: p.killerMundial,
-      killerType: "mundial",
-      goals: 0,
-      pointsPerGoal: 2,
-      totalPoints: 0,
-    },
-    killerSeleccion: {
-      killerName: p.killerSeleccion,
-      killerType: "seleccion",
-      goals: 0,
-      pointsPerGoal: 1,
-      totalPoints: 0,
-    },
-    totalFromPredictions: 0,
-    totalFromGoalkeeper: 0,
-    totalFromKillers: 0,
-    grandTotal: 0,
-    groupStageTotal: 0,
+  // Convert MATCHES to Fixture format
+  const fixtures: Fixture[] = MATCHES.map((m) => ({
+    id: m.id,
+    homeTeam: m.homeTeam,
+    awayTeam: m.awayTeam,
+    homeFlag: "",
+    awayFlag: "",
+    date: "",
+    status: m.homeScore !== null ? "FT" : "NS",
+    homeScore: m.homeScore,
+    awayScore: m.awayScore,
+    homePenalties: null,
+    awayPenalties: null,
+    minute: null,
+    phase: "groups",
   }));
 
-  const standings = buildLeaderboard(skeletonBreakdowns, []);
+  // Calculate real scores for all participants (no GK/killer data yet)
+  const killerGoals: KillerGoals = { mundialGoals: 0, seleccionGoals: 0 };
+
+  const breakdowns = PARTICIPANTS.map((participant) =>
+    calculateParticipantScore({
+      participant,
+      fixtures,
+      goalkeeperData: [],
+      killerGoals,
+    })
+  );
+
+  const standings = buildLeaderboard(breakdowns, fixtures);
 
   return NextResponse.json({
     standings,
     meta: {
       totalParticipants: PARTICIPANTS.length,
+      playedMatches: fixtures.filter((f) => f.status === "FT").length,
       lastUpdated: new Date().toISOString(),
     },
   });
