@@ -5,7 +5,7 @@ import AdminLoginForm from "./AdminLoginForm";
 export default async function AdminPage() {
   const cookieStore = await cookies();
   const adminCookie = cookieStore.get("porra_admin")?.value;
-  const secret = process.env.ADMIN_SECRET;
+  const secret = process.env.ADMIN_SECRET?.trim();
 
   const isAuthenticated = !!(secret && adminCookie === secret);
 
