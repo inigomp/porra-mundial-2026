@@ -18,6 +18,7 @@ import {
   type FdoMatchSummary,
 } from "@/lib/football-data-org";
 import { MATCHES, PARTICIPANTS } from "@/lib/participants";
+import { setStandingsCache } from "@/lib/standings-cache";
 import { calculateParticipantScore, buildLeaderboard, type FixtureGoalkeeperData } from "@/lib/scoring-engine";
 import type { Fixture, GoalkeeperMatchEvent, KillerGoals } from "@/lib/types";
 
@@ -163,6 +164,22 @@ async function syncWithFootballDataOrg() {
   });
 
   const standings = buildLeaderboard(breakdowns, fixtures);
+
+  // Persist enriched standings in the module-level cache so /api/standings
+  // can serve GK and killer data without calling FDO on every request.
+  const killerGoalsByParticipant: Record<string, { mundialGoals: number; seleccionGoals: number }> = {};
+  for (const bd of breakdowns) {
+    killerGoalsByParticipant[bd.participantId] = {
+      mundialGoals: bd.killerMundial.goals,
+      seleccionGoals: bd.killerSeleccion.goals,
+    };
+  }
+  setStandingsCache({
+    standings,
+    goalkeeperData: {},
+    killerGoals: killerGoalsByParticipant,
+    dataSource: "football-data.org",
+  });
 
   return NextResponse.json({
     ok: true,

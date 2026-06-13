@@ -1,5 +1,11 @@
-import { players } from "@/lib/mock-data";
+import { cookies } from "next/headers";
+import { Fragment } from "react";
 import { Crown } from "lucide-react";
+import { buildLeaderboard, calculateParticipantScore } from "@/lib/scoring-engine";
+import { PARTICIPANTS, MATCHES } from "@/lib/participants";
+import { getStandingsCache } from "@/lib/standings-cache";
+import { applyOverrides } from "@/lib/score-overrides";
+import type { Fixture, KillerGoals, StandingEntry } from "@/lib/types";
 
 const dotColor = {
   hit: "bg-[#00c853]",
@@ -7,7 +13,47 @@ const dotColor = {
   partial: "bg-yellow-400",
 } as const;
 
-export default function StandingsTable() {
+async function getStandings(): Promise<StandingEntry[]> {
+  const cached = getStandingsCache();
+  if (cached) return cached.standings;
+
+  const matches = applyOverrides(MATCHES);
+  const fixtures: Fixture[] = matches.map((m) => ({
+    id: m.id,
+    homeTeam: m.homeTeam,
+    awayTeam: m.awayTeam,
+    homeFlag: "",
+    awayFlag: "",
+    date: "",
+    status: m.homeScore !== null ? "FT" : "NS",
+    homeScore: m.homeScore,
+    awayScore: m.awayScore,
+    homePenalties: null,
+    awayPenalties: null,
+    minute: null,
+    phase: "groups",
+  }));
+
+  const killerGoals: KillerGoals = { mundialGoals: 0, seleccionGoals: 0 };
+  const breakdowns = PARTICIPANTS.map((p) =>
+    calculateParticipantScore({ participant: p, fixtures, goalkeeperData: [], killerGoals })
+  );
+  return buildLeaderboard(breakdowns, fixtures);
+}
+
+export default async function StandingsTable() {
+  const cookieStore = await cookies();
+  const identityId = cookieStore.get("porra_identity")?.value;
+
+  const standings = await getStandings();
+  // Show top 10 + current user (if outside top 10)
+  const top10 = standings.slice(0, 10);
+  const currentEntry = identityId
+    ? standings.find((s) => s.participantId === identityId)
+    : null;
+  const isCurrentInTop10 = currentEntry ? top10.some((s) => s.participantId === identityId) : true;
+  const displayList = isCurrentInTop10 ? top10 : [...top10, currentEntry!];
+
   return (
     <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-5">
       <div className="flex items-center justify-between mb-4">
@@ -28,53 +74,70 @@ export default function StandingsTable() {
             </tr>
           </thead>
           <tbody className="divide-y divide-[#2a2d3a]">
-            {players.filter((p) => p.id !== "otros").map((player, idx) => (
-              <tr
-                key={player.id}
-                className={`${player.isCurrentUser ? "bg-[#ffd700]/5" : ""}`}
-              >
-                <td className="py-3 pr-2">
-                  <div className="flex items-center justify-center w-7">
-                    {idx === 0 ? (
-                      <Crown size={16} className="text-[#ffd700]" />
-                    ) : (
-                      <span className="text-[#6b7280] font-bold">{idx + 1}</span>
-                    )}
-                  </div>
-                </td>
-                <td className="py-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-full bg-[#2a2d3a] flex items-center justify-center text-xs font-bold text-[#ffd700] flex-shrink-0">
-                      {player.initials}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <p className="font-semibold text-white text-sm">{player.name}</p>
-                        {player.isCurrentUser && (
-                          <span className="bg-[#ffd700] text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full">
-                            TÚ
-                          </span>
+            {displayList.map((entry, idx) => {
+              const isCurrentUser = entry.participantId === identityId;
+              const initials = entry.participantName
+                .split(" ")
+                .map((n) => n[0])
+                .slice(0, 2)
+                .join("");
+              const exactHits = entry.exactScores;
+              const isCurrentUserSeparated = !isCurrentInTop10 && idx === 10;
+
+              return (
+                <Fragment key={entry.participantId}>
+                  {isCurrentUserSeparated && (
+                    <tr>
+                      <td colSpan={4} className="py-1 text-center">
+                        <span className="text-[#4b5563] text-[10px]">···</span>
+                      </td>
+                    </tr>
+                  )}
+                  <tr className={isCurrentUser ? "bg-[#ffd700]/5" : ""}>
+                    <td className="py-3 pr-2">
+                      <div className="flex items-center justify-center w-7">
+                        {entry.rank === 1 ? (
+                          <Crown size={16} className="text-[#ffd700]" />
+                        ) : (
+                          <span className="text-[#6b7280] font-bold">{entry.rank}</span>
                         )}
                       </div>
-                      <p className="text-[#6b7280] text-xs">{player.subtitle}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="py-3 text-right font-bold text-white tabular-nums">
-                  {player.points.toLocaleString("es-ES")}
-                </td>
-                <td className="py-3 hidden sm:table-cell">
-                  <div className="flex gap-1 justify-end">
-                    {player.lastFive.map((result, i) => (
-                      <span
-                        key={i}
-                        className={`w-3 h-3 rounded-full ${dotColor[result]}`}
-                      />
-                    ))}
-                  </div>
-                </td>
-              </tr>
-            ))}
+                    </td>
+                    <td className="py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-[#2a2d3a] flex items-center justify-center text-xs font-bold text-[#ffd700] flex-shrink-0">
+                          {initials}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-semibold text-white text-sm">{entry.participantName}</p>
+                            {isCurrentUser && (
+                              <span className="bg-[#ffd700] text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                                TÚ
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[#6b7280] text-xs">{exactHits} exactos</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 text-right font-bold text-white tabular-nums">
+                      {entry.points.toLocaleString("es-ES")}
+                    </td>
+                    <td className="py-3 hidden sm:table-cell">
+                      <div className="flex gap-1 justify-end">
+                        {entry.lastFive.map((result, i) => (
+                          <span
+                            key={i}
+                            className={`w-3 h-3 rounded-full ${dotColor[result]}`}
+                          />
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>
