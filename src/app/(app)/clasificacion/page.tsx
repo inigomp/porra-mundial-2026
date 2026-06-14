@@ -6,23 +6,73 @@ import { getStandingsCache } from "@/lib/standings-cache";
 import { getMatchesWithLiveScores } from "@/lib/live-scores";
 import type { Fixture, KillerGoals, StandingEntry } from "@/lib/types";
 
-async function getStandings(): Promise<StandingEntry[]> {
-  const cached = getStandingsCache();
-  if (cached) return cached.standings;
+type StandingWithDelta = StandingEntry & { rankDelta: number };
 
-  const liveMatches = await getMatchesWithLiveScores();
-  const fixtures: Fixture[] = liveMatches.map((m) => ({
-    id: m.id, homeTeam: m.homeTeam, awayTeam: m.awayTeam,
-    homeFlag: "", awayFlag: "", date: "",
-    status: m.homeScore !== null ? "FT" : "NS",
-    homeScore: m.homeScore, awayScore: m.awayScore,
-    homePenalties: null, awayPenalties: null, minute: null, phase: "groups",
-  }));
-  const killerGoals: KillerGoals = { mundialGoals: 0, seleccionGoals: 0 };
-  const breakdowns = PARTICIPANTS.map((p) =>
-    calculateParticipantScore({ participant: p, fixtures, goalkeeperData: [], killerGoals })
+async function getStandings(): Promise<StandingWithDelta[]> {
+  const matches = await getMatchesWithLiveScores();
+
+  const finishedMatches = matches.filter(
+    (m) =>
+      m.homeScore !== null &&
+      !m.homeTeam.toUpperCase().includes("OCTAVO") &&
+      !m.homeTeam.toUpperCase().includes("ACERTAR")
   );
-  return buildLeaderboard(breakdowns, fixtures);
+
+  const toFixture = (m: (typeof finishedMatches)[number]): Fixture => ({
+    id: m.id,
+    homeTeam: m.homeTeam,
+    awayTeam: m.awayTeam,
+    homeFlag: "",
+    awayFlag: "",
+    date: "",
+    status: "FT",
+    homeScore: m.homeScore,
+    awayScore: m.awayScore,
+    homePenalties: null,
+    awayPenalties: null,
+    minute: null,
+    phase: "groups",
+  });
+
+  const killerGoals: KillerGoals = { mundialGoals: 0, seleccionGoals: 0 };
+
+  // Current standings (cache or live)
+  const cached = getStandingsCache();
+  let current: StandingEntry[];
+  if (cached) {
+    current = cached.standings;
+  } else {
+    const allFixtures = matches.map((m) => ({
+      ...toFixture({ ...m, homeScore: m.homeScore }),
+      status: m.homeScore !== null ? ("FT" as const) : ("NS" as const),
+    }));
+    const breakdowns = PARTICIPANTS.map((p) =>
+      calculateParticipantScore({ participant: p, fixtures: allFixtures, goalkeeperData: [], killerGoals })
+    );
+    current = buildLeaderboard(breakdowns, allFixtures);
+  }
+
+  // Previous standings — without the last finished match
+  const sorted = [...finishedMatches].sort(
+    (a, b) => parseInt(a.id.replace(/\D/g, "")) - parseInt(b.id.replace(/\D/g, ""))
+  );
+  const prevMatches = sorted.slice(0, -1);
+
+  let prevRankMap = new Map<string, number>();
+  if (prevMatches.length > 0) {
+    const prevFixtures = prevMatches.map(toFixture);
+    const prevBreakdowns = PARTICIPANTS.map((p) =>
+      calculateParticipantScore({ participant: p, fixtures: prevFixtures, goalkeeperData: [], killerGoals })
+    );
+    const prevStandings = buildLeaderboard(prevBreakdowns, prevFixtures);
+    prevRankMap = new Map(prevStandings.map((s) => [s.participantId, s.rank]));
+  }
+
+  return current.map((entry) => {
+    const prevRank = prevRankMap.get(entry.participantId);
+    const rankDelta = prevRank === undefined ? 0 : prevRank - entry.rank;
+    return { ...entry, rankDelta };
+  });
 }
 
 function PodiumBadge({ pos }: { pos: number }) {
@@ -50,7 +100,7 @@ export default async function ClasificacionPage() {
         <div className="overflow-x-auto">
         <div className="min-w-[420px]">
         {/* Header */}
-        <div className="grid grid-cols-[2rem_1fr_4rem_3rem_3rem_4rem] gap-2 px-4 py-2.5 border-b border-[#2a2d3a] text-[#6b7280] text-xs font-semibold uppercase tracking-widest">
+        <div className="grid grid-cols-[2.5rem_1fr_4rem_3rem_3rem_4rem] gap-2 px-4 py-2.5 border-b border-[#2a2d3a] text-[#6b7280] text-xs font-semibold uppercase tracking-widest">
           <span>#</span>
           <span>Participante</span>
           <span className="text-right">Pts</span>
@@ -61,15 +111,25 @@ export default async function ClasificacionPage() {
 
         {standings.map((entry, idx) => {
           const isMe = entry.participantId === identity;
+          const { rankDelta } = entry;
           return (
             <div
               key={entry.participantId}
-              className={`grid grid-cols-[2rem_1fr_4rem_3rem_3rem_4rem] gap-2 px-4 py-3 border-b border-[#2a2d3a] last:border-0 items-center ${
+              className={`grid grid-cols-[2.5rem_1fr_4rem_3rem_3rem_4rem] gap-2 px-4 py-3 border-b border-[#2a2d3a] last:border-0 items-center ${
                 isMe ? "bg-[#00c853]/10 border-l-2 border-l-[#00c853]" : "hover:bg-[#1e2130]"
               }`}
             >
-              <div className="flex items-center justify-start">
+              <div className="flex items-center gap-0.5">
                 <PodiumBadge pos={idx + 1} />
+                <span className="text-xs w-3 text-center leading-none">
+                  {rankDelta > 0 ? (
+                    <span className="text-[#00c853]">↑</span>
+                  ) : rankDelta < 0 ? (
+                    <span className="text-red-400">↓</span>
+                  ) : (
+                    <span className="text-[#4b5563]">—</span>
+                  )}
+                </span>
               </div>
               <div className="min-w-0">
                 <Link
