@@ -1,4 +1,4 @@
-import { getLiveWCMatches, getTodayWCMatches } from "@/lib/football-data-org";
+import { getLiveWCMatches, getRecentWCMatches } from "@/lib/football-data-org";
 import type { FdoMatchSummary } from "@/lib/football-data-org";
 import { MATCHES } from "@/lib/participants";
 import { PARTICIPANTS } from "@/lib/participants";
@@ -42,12 +42,14 @@ export default async function LiveBanner() {
   let matches = await getLiveWCMatches();
   let isLive = matches.length > 0;
 
-  // 2. Fall back to today's finished/in-play
+  // 2. Fall back to recent finished/in-play (last 2 days to handle UTC midnight boundary)
   if (!isLive) {
-    const today = await getTodayWCMatches();
-    matches = today.filter(
+    const recent = await getRecentWCMatches(2);
+    matches = recent.filter(
       (m) => m.status === "IN_PLAY" || m.status === "PAUSED" || m.status === "FINISHED"
     );
+    // Sort by utcDate descending so matches[0] is the most recent
+    matches.sort((a, b) => new Date(b.utcDate).getTime() - new Date(a.utcDate).getTime());
     isLive = matches.some((m) => m.status === "IN_PLAY" || m.status === "PAUSED");
   }
 
@@ -61,7 +63,11 @@ export default async function LiveBanner() {
     );
     if (allMatches.length === 0) return null;
 
-    const lastMatch = allMatches[allMatches.length - 1];
+    // Sort by numeric ID descending — IDs are sequential (m1, m2 ... m73)
+    const sorted = [...allMatches].sort(
+      (a, b) => parseInt(b.id.replace(/\D/g, "")) - parseInt(a.id.replace(/\D/g, ""))
+    );
+    const lastMatch = sorted[0];
     const homeFlag = FLAG_ES[lastMatch.homeTeam] ?? "🏳️";
     const awayFlag = FLAG_ES[lastMatch.awayTeam] ?? "🏳️";
 
