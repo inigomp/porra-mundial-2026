@@ -125,13 +125,14 @@ export default async function ParticipantPrediccionesPage({
               return (
                 <div
                   key={m.id}
-                  className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl px-4 py-3 flex items-center gap-4"
+                  className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4"
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-white text-sm font-medium truncate">
                       {m.homeTeam} vs {m.awayTeam}
                     </p>
                   </div>
+                  <div className="flex items-center gap-3 sm:gap-4">
                   <div className="text-center w-16">
                     <p className="text-[#6b7280] text-xs mb-0.5">Real</p>
                     <p className="text-white font-bold text-sm">
@@ -156,6 +157,7 @@ export default async function ParticipantPrediccionesPage({
                       <p className="text-[#6b7280] text-xs">Sin pred.</p>
                     )}
                   </div>
+                  </div>
                 </div>
               );
             })}
@@ -175,13 +177,14 @@ export default async function ParticipantPrediccionesPage({
               return (
                 <div
                   key={m.id}
-                  className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl px-4 py-3 flex items-center gap-4 opacity-70"
+                  className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 opacity-70"
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-white text-sm font-medium truncate">
                       {m.homeTeam} vs {m.awayTeam}
                     </p>
                   </div>
+                  <div className="flex items-center gap-3 sm:gap-4">
                   <div className="text-center w-16">
                     <p className="text-[#6b7280] text-xs mb-0.5">Real</p>
                     <p className="text-[#6b7280] font-bold text-sm">–</p>
@@ -194,6 +197,7 @@ export default async function ParticipantPrediccionesPage({
                   </div>
                   <div className="text-center w-20">
                     <p className="text-[#6b7280] text-xs">Pendiente</p>
+                  </div>
                   </div>
                 </div>
               );
