@@ -14,32 +14,76 @@ const dotColor = {
   partial: "bg-yellow-400",
 } as const;
 
-async function getStandings(): Promise<StandingEntry[]> {
+type StandingsWithDelta = StandingEntry & { rankDelta: number };
+
+async function getStandings(): Promise<StandingsWithDelta[]> {
+  // ── Current standings ──────────────────────────────────────────────────────
   const cached = getStandingsCache();
-  if (cached) return cached.standings;
 
   const matches = await getMatchesWithLiveScores();
-  const fixtures: Fixture[] = matches.map((m) => ({
+  const finishedMatches = matches.filter(
+    (m) =>
+      m.homeScore !== null &&
+      !m.homeTeam.toUpperCase().includes("OCTAVO") &&
+      !m.homeTeam.toUpperCase().includes("ACERTAR")
+  );
+
+  const toFixture = (m: (typeof finishedMatches)[number]): Fixture => ({
     id: m.id,
     homeTeam: m.homeTeam,
     awayTeam: m.awayTeam,
     homeFlag: "",
     awayFlag: "",
     date: "",
-    status: m.homeScore !== null ? "FT" : "NS",
+    status: "FT",
     homeScore: m.homeScore,
     awayScore: m.awayScore,
     homePenalties: null,
     awayPenalties: null,
     minute: null,
     phase: "groups",
-  }));
+  });
 
-  const killerGoals: KillerGoals = { mundialGoals: 0, seleccionGoals: 0 };
-  const breakdowns = PARTICIPANTS.map((p) =>
-    calculateParticipantScore({ participant: p, fixtures, goalkeeperData: [], killerGoals })
+  let current: StandingEntry[];
+  if (cached) {
+    current = cached.standings;
+  } else {
+    const allFixtures = matches.map((m) => ({
+      ...toFixture(m),
+      status: m.homeScore !== null ? ("FT" as const) : ("NS" as const),
+    }));
+    const killerGoals: KillerGoals = { mundialGoals: 0, seleccionGoals: 0 };
+    const breakdowns = PARTICIPANTS.map((p) =>
+      calculateParticipantScore({ participant: p, fixtures: allFixtures, goalkeeperData: [], killerGoals })
+    );
+    current = buildLeaderboard(breakdowns, allFixtures);
+  }
+
+  // ── Previous standings (without the last finished match) ──────────────────
+  // Sort by numeric match ID to find the most recently added result
+  const sorted = [...finishedMatches].sort(
+    (a, b) => parseInt(a.id.replace(/\D/g, "")) - parseInt(b.id.replace(/\D/g, ""))
   );
-  return buildLeaderboard(breakdowns, fixtures);
+  const prevMatches = sorted.slice(0, -1); // all except the last finished
+
+  let prevRankMap = new Map<string, number>();
+  if (prevMatches.length > 0) {
+    const killerGoals: KillerGoals = { mundialGoals: 0, seleccionGoals: 0 };
+    const prevFixtures = prevMatches.map(toFixture);
+    const prevBreakdowns = PARTICIPANTS.map((p) =>
+      calculateParticipantScore({ participant: p, fixtures: prevFixtures, goalkeeperData: [], killerGoals })
+    );
+    const prevStandings = buildLeaderboard(prevBreakdowns, prevFixtures);
+    prevRankMap = new Map(prevStandings.map((s) => [s.participantId, s.rank]));
+  }
+
+  // ── Merge ──────────────────────────────────────────────────────────────────
+  return current.map((entry) => {
+    const prevRank = prevRankMap.get(entry.participantId);
+    const rankDelta =
+      prevRank === undefined ? 0 : prevRank - entry.rank; // positive = went up
+    return { ...entry, rankDelta };
+  });
 }
 
 export default async function StandingsTable() {
@@ -84,6 +128,7 @@ export default async function StandingsTable() {
                 .join("");
               const exactHits = entry.exactScores;
               const isCurrentUserSeparated = !isCurrentInTop10 && idx === 10;
+              const { rankDelta } = entry;
 
               return (
                 <Fragment key={entry.participantId}>
@@ -96,12 +141,23 @@ export default async function StandingsTable() {
                   )}
                   <tr className={isCurrentUser ? "bg-[#ffd700]/5" : ""}>
                     <td className="py-3 pr-2">
-                      <div className="flex items-center justify-center w-7">
-                        {entry.rank === 1 ? (
-                          <Crown size={16} className="text-[#ffd700]" />
-                        ) : (
-                          <span className="text-[#6b7280] font-bold">{entry.rank}</span>
-                        )}
+                      <div className="flex items-center gap-1">
+                        <div className="flex items-center justify-center w-7">
+                          {entry.rank === 1 ? (
+                            <Crown size={16} className="text-[#ffd700]" />
+                          ) : (
+                            <span className="text-[#6b7280] font-bold">{entry.rank}</span>
+                          )}
+                        </div>
+                        <span className="text-xs w-3 text-center leading-none">
+                          {rankDelta > 0 ? (
+                            <span className="text-[#00c853]">↑</span>
+                          ) : rankDelta < 0 ? (
+                            <span className="text-red-400">↓</span>
+                          ) : (
+                            <span className="text-[#4b5563]">—</span>
+                          )}
+                        </span>
                       </div>
                     </td>
                     <td className="py-3">
