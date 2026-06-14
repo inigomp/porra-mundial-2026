@@ -304,41 +304,37 @@ export default async function DirectoPage() {
     }>;
   };
 
-  // Compute feasible final scores from current live score (never go backwards).
-  // Base: current score or 0-0 if match hasn't started.
+  // Three scenarios anchored to the current live score:
+  //   1. Stays as-is (current score)
+  //   2. Home scores next (+1 local)
+  //   3. Away scores next (+1 visitante)
+  // If match hasn't started yet (no score), use 0-0 / 1-0 / 0-1 as seeds.
   const curH = focusScore?.h ?? 0;
   const curA = focusScore?.a ?? 0;
-  // Home win: minimum final where home > away, both ≥ current
-  const hwH = curH > curA ? curH : curA + 1;
-  const hwA = curA;
-  // Draw: minimum final draw ≥ current
-  const dwD = Math.max(curH, curA);
-  // Away win: minimum final where away > home, both ≥ current
-  const awH = curH;
-  const awA = curA > curH ? curA : curH + 1;
+  const matchStarted = focusScore !== null;
 
   const scenariosData: ScenarioResult[] = focusId
     ? [
         {
-          label: `Gana ${focusHomeDisplay}`,
-          h: hwH,
-          a: hwA,
-          gkHomeGoals: hwA,  // home GK concedes away's goals
-          gkAwayGoals: hwH,  // away GK concedes home's goals
+          label: matchStarted ? "Se mantiene así" : "Empate",
+          h: curH,
+          a: curA,
+          gkHomeGoals: curA,
+          gkAwayGoals: curH,
         },
         {
-          label: "Empate",
-          h: dwD,
-          a: dwD,
-          gkHomeGoals: dwD,
-          gkAwayGoals: dwD,
+          label: matchStarted ? `Marca ${focusHomeDisplay}` : `Gana ${focusHomeDisplay}`,
+          h: curH + 1,
+          a: curA,
+          gkHomeGoals: curA,
+          gkAwayGoals: curH + 1,
         },
         {
-          label: `Gana ${focusAwayDisplay}`,
-          h: awH,
-          a: awA,
-          gkHomeGoals: awA,
-          gkAwayGoals: awH,
+          label: matchStarted ? `Marca ${focusAwayDisplay}` : `Gana ${focusAwayDisplay}`,
+          h: curH,
+          a: curA + 1,
+          gkHomeGoals: curA + 1,
+          gkAwayGoals: curH,
         },
       ].map((s) => {
         const sim = simulateLiveScenario(
