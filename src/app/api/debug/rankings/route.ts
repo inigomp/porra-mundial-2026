@@ -7,7 +7,7 @@ import {
 
 export async function GET(req: NextRequest) {
   const secret = req.headers.get("x-admin-secret");
-  if (!secret || secret !== process.env.ADMIN_SECRET) {
+  if (!secret || secret.trim() !== (process.env.ADMIN_SECRET ?? "").trim()) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
