@@ -1,16 +1,16 @@
 import { cookies } from "next/headers";
 import { buildLeaderboard, calculateParticipantScore } from "@/lib/scoring-engine";
-import { PARTICIPANTS, MATCHES } from "@/lib/participants";
+import { PARTICIPANTS } from "@/lib/participants";
 import { getStandingsCache } from "@/lib/standings-cache";
-import { applyOverrides } from "@/lib/score-overrides";
+import { getMatchesWithLiveScores } from "@/lib/live-scores";
 import type { Fixture, KillerGoals, StandingEntry } from "@/lib/types";
 
 async function getStandings(): Promise<StandingEntry[]> {
   const cached = getStandingsCache();
   if (cached) return cached.standings;
 
-  const matches = applyOverrides(MATCHES);
-  const fixtures: Fixture[] = matches.map((m) => ({
+  const liveMatches = await getMatchesWithLiveScores();
+  const fixtures: Fixture[] = liveMatches.map((m) => ({
     id: m.id, homeTeam: m.homeTeam, awayTeam: m.awayTeam,
     homeFlag: "", awayFlag: "", date: "",
     status: m.homeScore !== null ? "FT" : "NS",

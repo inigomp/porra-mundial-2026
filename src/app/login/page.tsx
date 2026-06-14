@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Users } from "lucide-react";
 
@@ -9,21 +9,16 @@ type Participant = { id: string; name: string };
 export default function LoginPage() {
   const router = useRouter();
   const [participants, setParticipants] = useState<Participant[] | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selecting, setSelecting] = useState<string | null>(null);
 
-  async function loadParticipants() {
-    if (participants) return;
-    setLoading(true);
-    try {
-      const res = await fetch("/api/players");
-      const data = await res.json();
-      setParticipants(data.participants ?? []);
-    } finally {
-      setLoading(false);
-    }
-  }
+  useEffect(() => {
+    fetch("/api/players")
+      .then((r) => r.json())
+      .then((data) => setParticipants(data.participants ?? []))
+      .finally(() => setLoading(false));
+  }, []);
 
   async function selectIdentity(id: string) {
     setSelecting(id);
@@ -60,14 +55,8 @@ export default function LoginPage() {
 
         {/* Card */}
         <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-2xl p-6">
-          {!participants ? (
-            <button
-              onClick={loadParticipants}
-              disabled={loading}
-              className="w-full bg-[#ffd700] text-black font-bold py-3 rounded-xl hover:bg-yellow-400 transition-colors disabled:opacity-50"
-            >
-              {loading ? "Cargando..." : "Ver participantes"}
-            </button>
+          {loading ? (
+            <p className="text-[#6b7280] text-sm text-center py-4">Cargando...</p>
           ) : (
             <>
               <input

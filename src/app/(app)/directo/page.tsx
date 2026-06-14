@@ -1,14 +1,9 @@
-import { MATCHES } from "@/lib/participants";
-import { applyOverrides } from "@/lib/score-overrides";
+import { getMatchesWithLiveScores } from "@/lib/live-scores";
 
 export default async function DirectoPage() {
-  const matches = applyOverrides(MATCHES);
+  const matches = await getMatchesWithLiveScores();
 
-  // Matches with scores today (using static data) — in a real setup these
-  // come from the FDO sync cron job
-  const recentlyPlayed = matches
-    .filter((m) => m.homeScore !== null)
-    .slice(-3);
+  const allPlayed = matches.filter((m) => m.homeScore !== null);
 
   return (
     <main className="ml-56 mt-14 flex-1 p-6 space-y-6">
@@ -29,13 +24,13 @@ export default async function DirectoPage() {
       </div>
 
       {/* Recently played */}
-      {recentlyPlayed.length > 0 && (
+      {allPlayed.length > 0 && (
         <section>
           <h2 className="text-[#9ca3af] text-xs font-semibold uppercase tracking-widest mb-3">
-            Últimos resultados
+            Resultados ({allPlayed.length})
           </h2>
           <div className="space-y-2">
-            {recentlyPlayed.map((m) => (
+            {allPlayed.map((m) => (
               <div
                 key={m.id}
                 className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl px-5 py-3 flex items-center"

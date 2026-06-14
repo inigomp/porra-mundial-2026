@@ -104,18 +104,21 @@ export default async function PrediccionesPage() {
       </div>
 
       {/* Extras */}
-      <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-4 flex gap-8">
+      <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-4 grid grid-cols-3 gap-4">
         <div>
           <p className="text-[#6b7280] text-xs mb-0.5">Portero</p>
           <p className="text-white text-sm font-semibold">{participant.goalkeeper}</p>
+          <p className="text-[#ffd700] text-xs mt-1 font-mono">0 pts <span className="text-[#4b5563]">· pendiente</span></p>
         </div>
         <div>
           <p className="text-[#6b7280] text-xs mb-0.5">Killer mundial</p>
           <p className="text-white text-sm font-semibold">{participant.killerMundial}</p>
+          <p className="text-[#ffd700] text-xs mt-1 font-mono">0 goles · 0 pts <span className="text-[#4b5563]">· pendiente</span></p>
         </div>
         <div>
           <p className="text-[#6b7280] text-xs mb-0.5">Killer selección</p>
           <p className="text-white text-sm font-semibold">{participant.killerSeleccion}</p>
+          <p className="text-[#ffd700] text-xs mt-1 font-mono">0 goles · 0 pts <span className="text-[#4b5563]">· pendiente</span></p>
         </div>
       </div>
 
