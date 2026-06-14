@@ -37,6 +37,7 @@ const TEAM_GK_MAP: Record<string, string> = {
   "canada":                       "Maxime Crépeau",
   "bosnia and herzegovina":       "Kenan Pirić",
   "bosnia & herzegovina":         "Kenan Pirić",
+  "bosnia-herzegovina":           "Kenan Pirić",
   "qatar":                        "Meshaal Barsham",
   "switzerland":                  "Yann Sommer",
 
