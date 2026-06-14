@@ -18,6 +18,8 @@ export interface EnrichedStandingsCache {
   goalkeeperData: Record<string, FixtureGoalkeeperData[]>;
   /** Per-participant killer goal tallies from the last FDO sync */
   killerGoals: Record<string, KillerGoals>;
+  /** Per-participant total goalkeeper points from the last FDO sync */
+  goalkeeperPoints: Record<string, number>;
   dataSource: string;
   cachedAt: number;
 }

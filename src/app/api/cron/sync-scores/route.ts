@@ -168,16 +168,19 @@ async function syncWithFootballDataOrg() {
   // Persist enriched standings in the module-level cache so /api/standings
   // can serve GK and killer data without calling FDO on every request.
   const killerGoalsByParticipant: Record<string, { mundialGoals: number; seleccionGoals: number }> = {};
+  const goalkeeperPointsByParticipant: Record<string, number> = {};
   for (const bd of breakdowns) {
     killerGoalsByParticipant[bd.participantId] = {
       mundialGoals: bd.killerMundial.goals,
       seleccionGoals: bd.killerSeleccion.goals,
     };
+    goalkeeperPointsByParticipant[bd.participantId] = bd.totalFromGoalkeeper;
   }
   setStandingsCache({
     standings,
     goalkeeperData: {},
     killerGoals: killerGoalsByParticipant,
+    goalkeeperPoints: goalkeeperPointsByParticipant,
     dataSource: "football-data.org",
   });
 

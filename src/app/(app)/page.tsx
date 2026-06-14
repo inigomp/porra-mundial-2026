@@ -1,6 +1,5 @@
 import StandingsTable from "@/components/StandingsTable";
-import WinProbabilities from "@/components/WinProbabilities";
-import InsightCards from "@/components/InsightCards";
+import LeaderboardCards from "@/components/LeaderboardCards";
 import UpcomingMatches from "@/components/UpcomingMatches";
 import LiveBanner from "@/components/LiveBanner";
 
@@ -16,12 +15,9 @@ export default function Home() {
             <StandingsTable />
           </div>
           <div className="lg:col-span-1">
-            <WinProbabilities />
+            <LeaderboardCards />
           </div>
         </div>
-
-        {/* Insight cards */}
-        <InsightCards />
 
         {/* Upcoming matches */}
         <UpcomingMatches />
