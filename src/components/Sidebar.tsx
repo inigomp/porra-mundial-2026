@@ -11,6 +11,7 @@ import {
   LogOut,
   Grid2x2,
   Settings,
+  Table2,
 } from "lucide-react";
 
 const navItems = [
@@ -19,6 +20,7 @@ const navItems = [
   { href: "/clasificacion", label: "CLASIFICACIÓN", icon: BarChart3 },
   { href: "/grupos", label: "FASE DE GRUPOS", icon: Grid2x2 },
   { href: "/directo", label: "EN VIVO", icon: Radio },
+  { href: "/datos", label: "DATOS", icon: Table2 },
   { href: "/reglas", label: "REGLAS", icon: BookOpen },
 ];
 

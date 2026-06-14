@@ -67,7 +67,9 @@ export default async function PrediccionesPage() {
   );
 
   const played = matches.filter((m) => m.homeScore !== null);
-  const pending = matches.filter((m) => m.homeScore === null);
+  const pending = matches
+    .filter((m) => m.homeScore === null)
+    .sort((a, b) => parseInt(a.id.replace(/\D/g, "")) - parseInt(b.id.replace(/\D/g, "")));
 
   let totalPts = 0;
   let exact = 0;
