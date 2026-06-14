@@ -14,7 +14,7 @@ export default async function Topbar() {
     : "?";
 
   return (
-    <header className="fixed top-0 left-56 right-0 h-14 bg-[#13151f] border-b border-[#2a2d3a] flex items-center px-6 gap-4 z-10">
+    <header className="fixed top-0 left-0 md:left-56 right-0 h-14 bg-[#13151f] border-b border-[#2a2d3a] flex items-center px-4 md:px-6 gap-4 z-10">
       {/* Title */}
       <p className="font-bold text-white text-sm tracking-wide flex-shrink-0">
         Porra Mundial 2026
@@ -26,8 +26,8 @@ export default async function Topbar() {
         <span className="text-xs font-bold text-white">EN DIRECTO</span>
       </div>
 
-      {/* Search */}
-      <div className="flex-1 max-w-xs">
+      {/* Search — hidden on mobile */}
+      <div className="hidden md:block flex-1 max-w-xs">
         <input
           type="search"
           placeholder="Buscar predicciones..."

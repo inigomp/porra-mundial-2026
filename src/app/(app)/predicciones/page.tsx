@@ -34,7 +34,7 @@ export default async function PrediccionesPage() {
 
   if (!identity) {
     return (
-      <main className="ml-56 mt-14 flex-1 p-6">
+      <main className="md:ml-56 mt-14 flex-1 p-4 md:p-6">
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
           <p className="text-4xl">🔒</p>
           <h2 className="text-white font-bold text-lg">Identifica quién eres primero</h2>
@@ -53,7 +53,7 @@ export default async function PrediccionesPage() {
   const participant = PARTICIPANTS.find((p) => p.id === identity);
   if (!participant) {
     return (
-      <main className="ml-56 mt-14 flex-1 p-6">
+      <main className="md:ml-56 mt-14 flex-1 p-4 md:p-6">
         <p className="text-[#9ca3af]">Participante no encontrado.</p>
       </main>
     );
@@ -80,14 +80,14 @@ export default async function PrediccionesPage() {
   });
 
   return (
-    <main className="ml-56 mt-14 flex-1 p-6 space-y-6">
+    <main className="md:ml-56 mt-14 flex-1 p-4 md:p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-white font-bold text-xl">Mis predicciones</h1>
           <p className="text-[#6b7280] text-sm mt-1">{participant.name}</p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex gap-2 flex-wrap">
           <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl px-4 py-3 text-center">
             <p className="text-[#00c853] font-bold text-xl">{totalPts}</p>
             <p className="text-[#6b7280] text-xs mt-0.5">puntos</p>
@@ -104,7 +104,7 @@ export default async function PrediccionesPage() {
       </div>
 
       {/* Extras */}
-      <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-4 grid grid-cols-3 gap-4">
+      <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
           <p className="text-[#6b7280] text-xs mb-0.5">Portero</p>
           <p className="text-white text-sm font-semibold">{participant.goalkeeper}</p>

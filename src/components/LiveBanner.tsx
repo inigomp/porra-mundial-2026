@@ -72,17 +72,17 @@ export default async function LiveBanner() {
     const awayFlag = FLAG_ES[lastMatch.awayTeam] ?? "🏳️";
 
     return (
-      <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-4 flex items-center gap-6">
+      <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-4 flex items-center gap-4 flex-wrap">
         <span className="bg-[#2a2d3a] text-[#6b7280] text-xs font-bold px-2.5 py-1 rounded-full shrink-0">
           ÚLTIMO RESULTADO
         </span>
-        <div className="flex items-center gap-4 flex-1 justify-center">
+        <div className="flex items-center gap-3 flex-1 justify-center min-w-[200px]">
           <span className="text-2xl">{homeFlag}</span>
-          <span className="text-[#9ca3af] text-sm font-medium">{lastMatch.homeTeam}</span>
+          <span className="text-[#9ca3af] text-sm font-medium hidden sm:inline">{lastMatch.homeTeam}</span>
           <span className="text-white font-black text-2xl tabular-nums">
             {lastMatch.homeScore} – {lastMatch.awayScore}
           </span>
-          <span className="text-[#9ca3af] text-sm font-medium">{lastMatch.awayTeam}</span>
+          <span className="text-[#9ca3af] text-sm font-medium hidden sm:inline">{lastMatch.awayTeam}</span>
           <span className="text-2xl">{awayFlag}</span>
         </div>
         <span className="text-[#6b7280] text-xs shrink-0">FT</span>

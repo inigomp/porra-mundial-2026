@@ -1,6 +1,6 @@
 export default function ReglasPage() {
   return (
-    <main className="ml-56 mt-14 flex-1 p-6 space-y-6 max-w-3xl">
+    <main className="md:ml-56 mt-14 flex-1 p-4 md:p-6 space-y-6 max-w-3xl">
       <div>
         <h1 className="text-white font-bold text-xl">Reglas de la porra</h1>
         <p className="text-[#6b7280] text-sm mt-1">Porra Mundial 2026 · Liga de Predicciones Elite</p>

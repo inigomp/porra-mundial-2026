@@ -33,7 +33,7 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-56 bg-[#13151f] border-r border-[#2a2d3a] flex flex-col z-20">
+    <aside className="hidden md:flex fixed left-0 top-0 h-full w-56 bg-[#13151f] border-r border-[#2a2d3a] flex-col z-20">
       {/* Logo */}
       <div className="px-5 pt-6 pb-5 border-b border-[#2a2d3a]">
         <p className="text-white font-bold text-sm leading-tight">Porra Mundial</p>

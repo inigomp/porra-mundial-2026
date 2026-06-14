@@ -5,7 +5,7 @@ import LiveBanner from "@/components/LiveBanner";
 
 export default function Home() {
   return (
-    <main className="ml-56 mt-14 flex-1 p-6 space-y-5">
+    <main className="md:ml-56 mt-14 flex-1 p-4 md:p-6 space-y-5">
         {/* Live match */}
         <LiveBanner />
 

@@ -29,7 +29,7 @@ export default async function GruposPage() {
 
   return (
     <div className="flex min-h-screen bg-[#0f1117]">
-      <main className="ml-56 mt-14 flex-1 p-6">
+      <main className="md:ml-56 mt-14 flex-1 p-4 md:p-6">
         <div className="mb-6">
           <h1 className="text-white font-bold text-xl">Fase de Grupos</h1>
           <p className="text-[#6b7280] text-sm mt-1">Resultados y clasificaciones de los 12 grupos</p>

@@ -6,7 +6,7 @@ export default async function DirectoPage() {
   const allPlayed = matches.filter((m) => m.homeScore !== null);
 
   return (
-    <main className="ml-56 mt-14 flex-1 p-6 space-y-6">
+    <main className="md:ml-56 mt-14 flex-1 p-4 md:p-6 space-y-6">
       <div>
         <h1 className="text-white font-bold text-xl">En vivo</h1>
         <p className="text-[#6b7280] text-sm mt-1">
