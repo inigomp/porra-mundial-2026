@@ -1,9 +1,8 @@
 import { GROUPS, TEAM_FLAGS, calculateGroupStandings } from "@/lib/groups";
-import { MATCHES } from "@/lib/participants";
-import { applyOverrides } from "@/lib/score-overrides";
+import { getMatchesWithLiveScores } from "@/lib/live-scores";
 
 export default async function GruposPage() {
-  const matches = applyOverrides(MATCHES);
+  const matches = await getMatchesWithLiveScores();
   const matchMap = new Map(
     matches.map((m) => [
       m.id,

@@ -1,8 +1,9 @@
 /**
- * Admin score overrides — module-level store.
+ * Score store — module-level.
  *
- * Allows admins to manually enter or correct match scores when the API
- * is unavailable or wrong. Overrides take precedence over static MATCHES data.
+ * Two layers, both applied by applyOverrides():
+ *   1. _syncedScores — written by the cron job from FDO live data.
+ *   2. _overrides    — written by admin panel. Takes precedence over synced scores.
  *
  * Lifecycle: lives in the Node.js process. Resets on cold starts.
  * For production persistence, migrate to Vercel KV.
@@ -15,7 +16,13 @@ export interface ScoreOverride {
   updatedAt: string;
 }
 
+/** Admin manual overrides — highest priority */
 const _overrides = new Map<string, ScoreOverride>();
+
+/** Scores synced from FDO cron — lower priority than admin overrides */
+const _syncedScores = new Map<string, ScoreOverride>();
+
+// ─── Admin overrides ─────────────────────────────────────────────────────────
 
 export function getOverride(fixtureId: string): ScoreOverride | undefined {
   return _overrides.get(fixtureId);
@@ -33,15 +40,31 @@ export function getAllOverrides(): ScoreOverride[] {
   return Array.from(_overrides.values());
 }
 
+// ─── FDO synced scores ────────────────────────────────────────────────────────
+
+export function setSyncedScore(score: ScoreOverride): void {
+  _syncedScores.set(score.fixtureId, score);
+}
+
+export function setSyncedScoresBulk(scores: ScoreOverride[]): void {
+  for (const s of scores) _syncedScores.set(s.fixtureId, s);
+}
+
+export function getAllSyncedScores(): ScoreOverride[] {
+  return Array.from(_syncedScores.values());
+}
+
+// ─── Combined apply ───────────────────────────────────────────────────────────
+
 /**
- * Apply overrides to a list of match-like objects.
- * Returns a new array; originals are not mutated.
+ * Apply scores to a list of match-like objects.
+ * Priority: admin override > FDO sync > original static value.
  */
 export function applyOverrides<T extends { id: string; homeScore: number | null; awayScore: number | null }>(
   matches: T[]
 ): T[] {
   return matches.map((m) => {
-    const ov = _overrides.get(m.id);
+    const ov = _overrides.get(m.id) ?? _syncedScores.get(m.id);
     if (!ov) return m;
     return { ...m, homeScore: ov.homeScore, awayScore: ov.awayScore };
   });

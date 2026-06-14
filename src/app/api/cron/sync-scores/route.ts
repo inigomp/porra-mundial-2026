@@ -19,6 +19,7 @@ import {
 } from "@/lib/football-data-org";
 import { MATCHES, PARTICIPANTS } from "@/lib/participants";
 import { setStandingsCache } from "@/lib/standings-cache";
+import { setSyncedScoresBulk } from "@/lib/score-overrides";
 import { calculateParticipantScore, buildLeaderboard, type FixtureGoalkeeperData } from "@/lib/scoring-engine";
 import type { Fixture, GoalkeeperMatchEvent, KillerGoals } from "@/lib/types";
 
@@ -108,6 +109,18 @@ async function syncWithFootballDataOrg() {
   }
 
   const fixtures = Array.from(fixtureMap.values());
+
+  // Persist synced scores so grupos/predicciones pages see live results
+  setSyncedScoresBulk(
+    fixtures
+      .filter((f) => f.homeScore !== null && f.awayScore !== null)
+      .map((f) => ({
+        fixtureId: f.id,
+        homeScore: f.homeScore as number,
+        awayScore: f.awayScore as number,
+        updatedAt: new Date().toISOString(),
+      }))
+  );
 
   const breakdowns = PARTICIPANTS.map((participant) => {
     const goalkeeperData: FixtureGoalkeeperData[] = [];

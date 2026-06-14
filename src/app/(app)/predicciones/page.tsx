@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { PARTICIPANTS, MATCHES } from "@/lib/participants";
-import { applyOverrides } from "@/lib/score-overrides";
+import { PARTICIPANTS } from "@/lib/participants";
+import { getMatchesWithLiveScores } from "@/lib/live-scores";
 import { getMatchResult } from "@/lib/scoring-engine";
 
 function getMatchPoints(
@@ -59,7 +59,8 @@ export default async function PrediccionesPage() {
     );
   }
 
-  const matches = applyOverrides(MATCHES).filter(
+  const allMatches = await getMatchesWithLiveScores();
+  const matches = allMatches.filter(
     (m) =>
       !m.homeTeam.toUpperCase().includes("OCTAVO") &&
       !m.homeTeam.toUpperCase().includes("ACERTAR")

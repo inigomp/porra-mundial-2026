@@ -1,7 +1,8 @@
 import { getLiveWCMatches, getTodayWCMatches } from "@/lib/football-data-org";
 import type { FdoMatchSummary } from "@/lib/football-data-org";
+import { MATCHES } from "@/lib/participants";
 import { PARTICIPANTS } from "@/lib/participants";
-import { TrendingUp } from "lucide-react";
+import { applyOverrides } from "@/lib/score-overrides";
 
 const FLAG: Record<string, string> = {
   "Brazil": "🇧🇷", "France": "🇫🇷", "Argentina": "🇦🇷", "England": "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
@@ -12,10 +13,21 @@ const FLAG: Record<string, string> = {
   "Canada": "🇨🇦", "Scotland": "🏴󠁧󠁢󠁳󠁣󠁴󠁿", "Sweden": "🇸🇪", "Tunisia": "🇹🇳",
   "South Korea": "🇰🇷", "Czechia": "🇨🇿", "South Africa": "🇿🇦", "Haiti": "🇭🇹",
   "Paraguay": "🇵🇾", "Ivory Coast": "🇨🇮", "Qatar": "🇶🇦", "Bosnia and Herzegovina": "🇧🇦",
-  "Curaçao": "🇨🇼",
-  "United States": "🇺🇸",
-  "Korea Republic": "🇰🇷",
-  "Bosnia-Herzegovina": "🇧🇦",
+  "Curaçao": "🇨🇼", "United States": "🇺🇸", "Korea Republic": "🇰🇷",
+  "Bosnia-Herzegovina": "🇧🇦", "Chequia": "🇨🇿", "Países Bajos": "🇳🇱",
+};
+
+// Team name → flag lookup for static MATCHES (Spanish names)
+const FLAG_ES: Record<string, string> = {
+  "Brasil": "🇧🇷", "Francia": "🇫🇷", "Argentina": "🇦🇷", "Inglaterra": "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
+  "España": "🇪🇸", "Alemania": "🇩🇪", "Portugal": "🇵🇹", "Países Bajos": "🇳🇱",
+  "Marruecos": "🇲🇦", "Japón": "🇯🇵", "Estados Unidos": "🇺🇸", "México": "🇲🇽",
+  "Australia": "🇦🇺", "Suiza": "🇨🇭", "Turquía": "🇹🇷", "Ecuador": "🇪🇨",
+  "Senegal": "🇸🇳", "Croacia": "🇭🇷", "Uruguay": "🇺🇾", "Colombia": "🇨🇴",
+  "Canadá": "🇨🇦", "Escocia": "🏴󠁧󠁢󠁳󠁣󠁴󠁿", "Suecia": "🇸🇪", "Túnez": "🇹🇳",
+  "Corea del Sur": "🇰🇷", "Chequia": "🇨🇿", "Sudáfrica": "🇿🇦", "Haití": "🇭🇹",
+  "Paraguay": "🇵🇾", "Costa de Marfil": "🇨🇮", "Catar": "🇶🇦",
+  "Bosnia y Herzegovina": "🇧🇦", "Curazao": "🇨🇼",
 };
 
 function statusLabel(m: FdoMatchSummary): string {
@@ -26,20 +38,51 @@ function statusLabel(m: FdoMatchSummary): string {
 }
 
 export default async function LiveBanner() {
-  // Try live first, fall back to today's in-progress / recently finished
+  // 1. Try API live matches
   let matches = await getLiveWCMatches();
-  if (matches.length === 0) {
+  let isLive = matches.length > 0;
+
+  // 2. Fall back to today's finished/in-play
+  if (!isLive) {
     const today = await getTodayWCMatches();
     matches = today.filter(
       (m) => m.status === "IN_PLAY" || m.status === "PAUSED" || m.status === "FINISHED"
     );
+    isLive = matches.some((m) => m.status === "IN_PLAY" || m.status === "PAUSED");
   }
 
-  if (matches.length === 0) return null;
+  // 3. Fall back to last played match from static + synced data
+  if (matches.length === 0) {
+    const allMatches = applyOverrides(MATCHES).filter(
+      (m) =>
+        m.homeScore !== null &&
+        !m.homeTeam.toUpperCase().includes("OCTAVO") &&
+        !m.homeTeam.toUpperCase().includes("ACERTAR")
+    );
+    if (allMatches.length === 0) return null;
 
-  // Count live porter picks to show as context
-  const liveIds = new Set(matches.map((m) => m.id));
-  const _ = liveIds; // used below if needed
+    const lastMatch = allMatches[allMatches.length - 1];
+    const homeFlag = FLAG_ES[lastMatch.homeTeam] ?? "🏳️";
+    const awayFlag = FLAG_ES[lastMatch.awayTeam] ?? "🏳️";
+
+    return (
+      <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-4 flex items-center gap-6">
+        <span className="bg-[#2a2d3a] text-[#6b7280] text-xs font-bold px-2.5 py-1 rounded-full shrink-0">
+          ÚLTIMO RESULTADO
+        </span>
+        <div className="flex items-center gap-4 flex-1 justify-center">
+          <span className="text-2xl">{homeFlag}</span>
+          <span className="text-[#9ca3af] text-sm font-medium">{lastMatch.homeTeam}</span>
+          <span className="text-white font-black text-2xl tabular-nums">
+            {lastMatch.homeScore} – {lastMatch.awayScore}
+          </span>
+          <span className="text-[#9ca3af] text-sm font-medium">{lastMatch.awayTeam}</span>
+          <span className="text-2xl">{awayFlag}</span>
+        </div>
+        <span className="text-[#6b7280] text-xs shrink-0">FT</span>
+      </div>
+    );
+  }
 
   const match = matches[0];
   const homeScore = match.score.fullTime.home ?? 0;
@@ -47,7 +90,7 @@ export default async function LiveBanner() {
   const homeFlag = FLAG[match.homeTeam.name] ?? "🏳️";
   const awayFlag = FLAG[match.awayTeam.name] ?? "🏳️";
   const label = statusLabel(match);
-  const isLive = match.status === "IN_PLAY" || match.status === "PAUSED";
+  const matchIsLive = match.status === "IN_PLAY" || match.status === "PAUSED";
 
   // Count participants whose GK plays for one of the teams
   const homeTeamName = match.homeTeam.name.toLowerCase();
@@ -59,8 +102,8 @@ export default async function LiveBanner() {
 
   return (
     <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-4 flex flex-col sm:flex-row items-center gap-4">
-      {/* Live badge */}
-      {isLive && (
+      {/* Live badge (mobile) */}
+      {matchIsLive && (
         <span className="sm:hidden inline-flex items-center gap-1 bg-red-500/20 text-red-400 text-xs font-bold px-2 py-0.5 rounded-full self-start">
           <span className="w-1.5 h-1.5 bg-red-400 rounded-full animate-pulse" />
           EN VIVO
@@ -85,7 +128,7 @@ export default async function LiveBanner() {
               ? "bg-red-500/20 text-red-400"
               : "bg-[#2a2d3a] text-[#9ca3af]"
           }`}>
-            {isLive ? `${label} MIN` : label}
+            {matchIsLive ? `${label} MIN` : label}
           </span>
         </div>
 
@@ -110,7 +153,7 @@ export default async function LiveBanner() {
       </div>
 
       {/* Live indicator (desktop) */}
-      {isLive && (
+      {matchIsLive && (
         <div className="hidden sm:flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
           <span className="w-2 h-2 bg-red-400 rounded-full animate-pulse" />
           <span className="text-red-400 text-xs font-bold tracking-widest">EN VIVO</span>
