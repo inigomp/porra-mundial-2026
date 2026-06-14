@@ -142,6 +142,30 @@ export async function getTodayWCMatches(date?: string): Promise<FdoMatchSummary[
   }
 }
 
+/**
+ * Get recent WC matches (last N days + today).
+ * Used to catch matches that started near midnight UTC and fall on "yesterday".
+ */
+export async function getRecentWCMatches(daysBack = 2): Promise<FdoMatchSummary[]> {
+  if (!hasToken()) return [];
+  try {
+    const now = new Date();
+    const from = new Date(now);
+    from.setUTCDate(from.getUTCDate() - daysBack);
+    const dateFrom = from.toISOString().split("T")[0];
+    const dateTo = now.toISOString().split("T")[0];
+    const res = await fetch(
+      `${BASE_URL}/competitions/WC/matches?dateFrom=${dateFrom}&dateTo=${dateTo}`,
+      { headers: apiHeaders(), next: { revalidate: 0 } }
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.matches ?? [];
+  } catch {
+    return [];
+  }
+}
+
 /** Get full match detail including lineup, goals, bookings, substitutions */
 export async function getMatchDetail(matchId: number): Promise<FdoMatchDetail | null> {
   if (!hasToken()) return null;

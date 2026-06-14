@@ -8,7 +8,7 @@ import {
 } from "@/lib/api-football";
 import {
   getLiveWCMatches,
-  getTodayWCMatches,
+  getRecentWCMatches,
   getMatchDetail,
   analyzeGKEvents,
   goalsAgainstTeam,
@@ -57,15 +57,15 @@ export async function GET(request: NextRequest) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function syncWithFootballDataOrg() {
-  const [liveMatches, todayMatches] = await Promise.all([
+  const [liveMatches, recentMatches] = await Promise.all([
     getLiveWCMatches(),
-    getTodayWCMatches(),
+    getRecentWCMatches(2),
   ]);
 
   const liveIds = new Set(liveMatches.map((m) => m.id));
   const allFdoMatches: FdoMatchSummary[] = [
     ...liveMatches,
-    ...todayMatches.filter((m) => !liveIds.has(m.id)),
+    ...recentMatches.filter((m) => !liveIds.has(m.id)),
   ];
 
   const finishedOrLive = allFdoMatches.filter(
@@ -198,7 +198,7 @@ async function syncWithFootballDataOrg() {
     ok: true,
     dataSource: "football-data.org",
     liveMatches: liveMatches.length,
-    todayMatches: todayMatches.length,
+    recentMatches: recentMatches.length,
     detailedMatches: detailMap.size,
     standingsCount: standings.length,
     topStandings: standings.slice(0, 10),

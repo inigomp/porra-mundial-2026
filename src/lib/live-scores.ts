@@ -9,7 +9,7 @@
  */
 import { MATCHES } from "./participants";
 import { applyOverrides, setSyncedScoresBulk } from "./score-overrides";
-import { getLiveWCMatches, getTodayWCMatches } from "./football-data-org";
+import { getLiveWCMatches, getRecentWCMatches } from "./football-data-org";
 import type { FdoMatchSummary } from "./football-data-org";
 
 export type MatchWithScore = {
@@ -91,16 +91,16 @@ export async function getMatchesWithLiveScores(): Promise<MatchWithScore[]> {
 
   // Try to fill nulls from FDO API: live first (most accurate), then today's
   try {
-    const [liveMatches, todayMatches] = await Promise.all([
+    const [liveMatches, recentMatches] = await Promise.all([
       getLiveWCMatches(),
-      getTodayWCMatches(),
+      getRecentWCMatches(2),
     ]);
 
-    // Merge: live takes priority over today (live has real-time scores)
+    // Merge: live takes priority over recent (live has real-time scores)
     const liveIds = new Set(liveMatches.map((m) => m.id));
     const allFdo: FdoMatchSummary[] = [
       ...liveMatches,
-      ...todayMatches.filter((m) => !liveIds.has(m.id)),
+      ...recentMatches.filter((m) => !liveIds.has(m.id)),
     ];
 
     const relevant = allFdo.filter(
