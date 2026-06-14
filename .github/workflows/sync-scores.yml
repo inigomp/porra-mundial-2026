@@ -2,8 +2,8 @@ name: Sync Live Scores
 
 on:
   schedule:
-    # Every 5 minutes during World Cup match hours (UTC 10:00-23:00)
-    - cron: '*/5 10-23 * * *'
+    # Every 5 minutes, all day — World Cup 2026 matches span UTC 00:00-23:59
+    - cron: '*/5 * * * *'
   workflow_dispatch: # Allow manual trigger from GitHub Actions UI
 
 jobs:
@@ -12,9 +12,11 @@ jobs:
     steps:
       - name: Trigger score sync
         run: |
-          STATUS=$(curl -sf -o /dev/null -w "%{http_code}" \
-            -X GET \
+          STATUS=$(curl -s -o /tmp/body.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             "https://porra-mundial-inigomp.vercel.app/api/cron/sync-scores")
+          cat /tmp/body.json
+          echo ""
           echo "HTTP Status: $STATUS"
           if [ "$STATUS" -ne 200 ]; then
             echo "Sync failed with status $STATUS"
