@@ -26,14 +26,19 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     scorers_count: scorers.length,
-    scorers_sample: scorers.slice(0, 3).map((s) => ({ name: s.player.name, goals: s.goals })),
     finished_count: finished.length,
-    details_fetched: details.filter(Boolean).length,
-    lineups_raw: details.filter(Boolean).slice(0, 1).map((d) => ({
-      id: d!.id,
-      lineups_keys: d!.lineups ? Object.keys(d!.lineups) : null,
+    detail_raw: details.filter(Boolean).slice(0, 1).map((d) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      lineups_full: d!.lineups as any,
-    })),
+      const raw = d as any;
+      return {
+        id: raw.id,
+        top_level_keys: Object.keys(raw),
+        // Check common lineup field names
+        has_lineups: raw.lineups,
+        has_lineup: raw.lineup,
+        has_homeTeam_lineup: raw.homeTeam?.lineup,
+        has_homeTeam_startXI: raw.homeTeam?.startXI,
+      };
+    }),
   });
 }
