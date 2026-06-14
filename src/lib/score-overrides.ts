@@ -1,12 +1,11 @@
-/**
- * Score store — module-level.
+﻿/**
+ * Score store — admin manual overrides only.
  *
- * Two layers, both applied by applyOverrides():
- *   1. _syncedScores — written by the cron job from FDO live data.
- *   2. _overrides    — written by admin panel. Takes precedence over synced scores.
+ * Lives in the Node.js process. Admin overrides are low-frequency (set once per match)
+ * so single-Lambda writes are acceptable.
  *
- * Lifecycle: lives in the Node.js process. Resets on cold starts.
- * For production persistence, migrate to Vercel KV.
+ * FDO live scores are no longer cached here — Next.js fetch cache (revalidate: 60s)
+ * handles sharing across Lambda instances without extra infrastructure.
  */
 
 export interface ScoreOverride {
@@ -18,11 +17,6 @@ export interface ScoreOverride {
 
 /** Admin manual overrides — highest priority */
 const _overrides = new Map<string, ScoreOverride>();
-
-/** Scores synced from FDO cron — lower priority than admin overrides */
-const _syncedScores = new Map<string, ScoreOverride>();
-
-// ─── Admin overrides ─────────────────────────────────────────────────────────
 
 export function getOverride(fixtureId: string): ScoreOverride | undefined {
   return _overrides.get(fixtureId);
@@ -40,31 +34,15 @@ export function getAllOverrides(): ScoreOverride[] {
   return Array.from(_overrides.values());
 }
 
-// ─── FDO synced scores ────────────────────────────────────────────────────────
-
-export function setSyncedScore(score: ScoreOverride): void {
-  _syncedScores.set(score.fixtureId, score);
-}
-
-export function setSyncedScoresBulk(scores: ScoreOverride[]): void {
-  for (const s of scores) _syncedScores.set(s.fixtureId, s);
-}
-
-export function getAllSyncedScores(): ScoreOverride[] {
-  return Array.from(_syncedScores.values());
-}
-
-// ─── Combined apply ───────────────────────────────────────────────────────────
-
 /**
- * Apply scores to a list of match-like objects.
- * Priority: admin override > FDO sync > original static value.
+ * Apply admin overrides to a list of match-like objects.
+ * FDO scores come through the fetch cache (live-scores.ts), not through this store.
  */
 export function applyOverrides<T extends { id: string; homeScore: number | null; awayScore: number | null }>(
   matches: T[]
 ): T[] {
   return matches.map((m) => {
-    const ov = _overrides.get(m.id) ?? _syncedScores.get(m.id);
+    const ov = _overrides.get(m.id);
     if (!ov) return m;
     return { ...m, homeScore: ov.homeScore, awayScore: ov.awayScore };
   });

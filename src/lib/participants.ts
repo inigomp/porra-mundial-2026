@@ -3053,7 +3053,7 @@ export const PARTICIPANTS: Participant[] = [
   },
   {
     id: '39', name: 'Jorge Carpintero',
-    killerMundial: 'Rapinha (BRA)', killerSeleccion: 'Torres', goalkeeper: 'Neuer (ALE)',
+    killerMundial: 'Raphinha (BRA)', killerSeleccion: 'Torres', goalkeeper: 'Neuer (ALE)',
     predictions: {
       'm37': { fixtureId: 'm37', homeGoals: 1, awayGoals: 1 },
       'm38': { fixtureId: 'm38', homeGoals: 1, awayGoals: 2 },

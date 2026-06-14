@@ -109,13 +109,33 @@ export interface FdoMatchDetail extends FdoMatchSummary {
 // API functions
 // ─────────────────────────────────────────────
 
+// ─────────────────────────────────────────────
+// Name normalization helpers
+// ─────────────────────────────────────────────
+
+/** Lowercase + strip common accents for fuzzy matching */
+function normStr(s: string): string {
+  return s.toLowerCase()
+    .replace(/[áàâä]/g, "a").replace(/[éèêë]/g, "e")
+    .replace(/[íìîï]/g, "i").replace(/[óòôö]/g, "o")
+    .replace(/[úùûü]/g, "u").replace(/ñ/g, "n").replace(/ç/g, "c");
+}
+
+/**
+ * Extract matchable surname key from participant player field.
+ * "Mbappé (FRA)" → "mbappe"   "Oyarzabal" → "oyarzabal"
+ */
+function playerKey(name: string): string {
+  return normStr(name.replace(/\s*\([^)]+\)\s*$/, "").trim());
+}
+
 /** Get all live + today's World Cup matches */
 export async function getLiveWCMatches(): Promise<FdoMatchSummary[]> {
   if (!hasToken()) return [];
   try {
     const res = await fetch(`${BASE_URL}/competitions/WC/matches?status=LIVE`, {
       headers: apiHeaders(),
-      next: { revalidate: 0 },
+      next: { revalidate: 30 },
     });
     if (!res.ok) return [];
     const data = await res.json();
@@ -132,7 +152,7 @@ export async function getTodayWCMatches(date?: string): Promise<FdoMatchSummary[
     const today = date ?? new Date().toISOString().split("T")[0];
     const res = await fetch(
       `${BASE_URL}/competitions/WC/matches?dateFrom=${today}&dateTo=${today}`,
-      { headers: apiHeaders(), next: { revalidate: 0 } }
+      { headers: apiHeaders(), next: { revalidate: 60 } }
     );
     if (!res.ok) return [];
     const data = await res.json();
@@ -156,7 +176,7 @@ export async function getRecentWCMatches(daysBack = 2): Promise<FdoMatchSummary[
     const dateTo = now.toISOString().split("T")[0];
     const res = await fetch(
       `${BASE_URL}/competitions/WC/matches?dateFrom=${dateFrom}&dateTo=${dateTo}`,
-      { headers: apiHeaders(), next: { revalidate: 0 } }
+      { headers: apiHeaders(), next: { revalidate: 60 } }
     );
     if (!res.ok) return [];
     const data = await res.json();
@@ -172,7 +192,7 @@ export async function getMatchDetail(matchId: number): Promise<FdoMatchDetail | 
   try {
     const res = await fetch(`${BASE_URL}/matches/${matchId}`, {
       headers: apiHeaders(),
-      next: { revalidate: 0 },
+      next: { revalidate: 60 },
     });
     if (!res.ok) return null;
     return await res.json();
@@ -286,22 +306,23 @@ export function goalsAgainstTeam(match: FdoMatchDetail, teamId: number): number 
 
 /**
  * Get goals scored by a specific player (by name, fuzzy match).
- * Excludes penalties.
- * Used for killer scoring.
+ * Excludes penalties. Normalizes accents and strips country code.
+ * "Mbappé (FRA)" → key "mbappe", matches "Kylian Mbappé" from FDO.
  */
 export function goalsByPlayer(
   match: FdoMatchDetail,
   playerName: string
 ): number {
-  const nameLower = playerName.toLowerCase();
-  const firstWord = nameLower.split(" ")[0];
-  return match.goals.filter(
-    (g) =>
-      g.type !== "PENALTY" &&
-      g.scorer !== null &&
-      (g.scorer.name.toLowerCase().includes(firstWord) ||
-       firstWord.includes(g.scorer.name.toLowerCase().split(" ")[0]))
-  ).length;
+  const key = playerKey(playerName);
+  return match.goals.filter((g) => {
+    if (g.type === "PENALTY" || !g.scorer) return false;
+    const scorerWords = normStr(g.scorer.name).split(/\s+/);
+    return scorerWords.some(
+      (w) => w === key ||
+        (w.length > 3 && key.startsWith(w)) ||
+        (key.length > 3 && w.startsWith(key))
+    );
+  }).length;
 }
 
 /**

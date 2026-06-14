@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { getLiveWCMatches, getTodayWCMatches, getRecentWCMatches } from "@/lib/football-data-org";
-import { getAllSyncedScores } from "@/lib/score-overrides";
 
 export async function GET() {
   const [live, today, recent] = await Promise.all([
@@ -18,6 +17,5 @@ export async function GET() {
     live: fmt(live),
     today: fmt(today),
     recent: fmt(recent),
-    syncedScores: getAllSyncedScores(),
   });
 }

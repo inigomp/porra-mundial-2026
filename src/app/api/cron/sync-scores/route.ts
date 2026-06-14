@@ -19,7 +19,6 @@ import {
 } from "@/lib/football-data-org";
 import { MATCHES, PARTICIPANTS } from "@/lib/participants";
 import { setStandingsCache } from "@/lib/standings-cache";
-import { setSyncedScoresBulk } from "@/lib/score-overrides";
 import { calculateParticipantScore, buildLeaderboard, type FixtureGoalkeeperData } from "@/lib/scoring-engine";
 import type { Fixture, GoalkeeperMatchEvent, KillerGoals } from "@/lib/types";
 
@@ -109,18 +108,6 @@ async function syncWithFootballDataOrg() {
   }
 
   const fixtures = Array.from(fixtureMap.values());
-
-  // Persist synced scores so grupos/predicciones pages see live results
-  setSyncedScoresBulk(
-    fixtures
-      .filter((f) => f.homeScore !== null && f.awayScore !== null)
-      .map((f) => ({
-        fixtureId: f.id,
-        homeScore: f.homeScore as number,
-        awayScore: f.awayScore as number,
-        updatedAt: new Date().toISOString(),
-      }))
-  );
 
   const breakdowns = PARTICIPANTS.map((participant) => {
     const goalkeeperData: FixtureGoalkeeperData[] = [];
@@ -284,11 +271,29 @@ function teamNameMatches(apiName: string, localName: string): boolean {
   );
 }
 
+function normStr(s: string): string {
+  return s.toLowerCase()
+    .replace(/[áàâä]/g, "a").replace(/[éèêë]/g, "e")
+    .replace(/[íìîï]/g, "i").replace(/[óòôö]/g, "o")
+    .replace(/[úùûü]/g, "u").replace(/ñ/g, "n").replace(/ç/g, "c");
+}
+
+// Known nicknames that differ from FDO registered name
+const GK_ALIASES: Record<string, string> = {
+  "bono": "bounou",   // Yassine Bounou (Morocco) plays as "Bono"
+};
+
 function fuzzyNameMatch(apiName: string, localName: string): boolean {
-  const a = apiName.toLowerCase();
-  const l = localName.toLowerCase();
-  if (a === l) return true;
-  const aFirst = a.split(" ")[0];
-  const lFirst = l.split(" ")[0];
-  return (aFirst.length > 3 && l.includes(aFirst)) || (lFirst.length > 3 && a.includes(lFirst));
+  // Strip "(XXX)" country code: "Costa (POR)" → "Costa"
+  const cleanLocal = localName.replace(/\s*\([^)]+\)\s*$/, "").trim();
+  const a = normStr(apiName);
+  const l = normStr(cleanLocal);
+  // Alias check (e.g. Bono → Bounou)
+  const alias = GK_ALIASES[l];
+  if (alias && a.includes(alias)) return true;
+  if (a === l || a.includes(l) || l.includes(a)) return true;
+  // Word-level: any word of the local name matches a word in the API name
+  const aWords = a.split(/\s+/);
+  const lWords = l.split(/\s+/);
+  return lWords.some((lw) => lw.length > 2 && aWords.some((aw) => aw === lw));
 }
