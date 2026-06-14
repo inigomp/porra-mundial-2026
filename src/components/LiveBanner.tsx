@@ -13,11 +13,16 @@ const FLAG: Record<string, string> = {
   "South Korea": "🇰🇷", "Czechia": "🇨🇿", "South Africa": "🇿🇦", "Haiti": "🇭🇹",
   "Paraguay": "🇵🇾", "Ivory Coast": "🇨🇮", "Qatar": "🇶🇦", "Bosnia and Herzegovina": "🇧🇦",
   "Curaçao": "🇨🇼",
+  "Morocco": "🇲🇦",
+  "United States": "🇺🇸",
+  "Korea Republic": "🇰🇷",
+  "Bosnia-Herzegovina": "🇧🇦",
 };
 
 function statusLabel(m: FdoMatchSummary): string {
   if (m.status === "PAUSED") return "HT";
-  if (m.status === "IN_PLAY" && m.minute) return `${m.minute}'`;
+  if (m.status === "IN_PLAY") return m.minute ? `${m.minute}'` : "EN JUEGO";
+  if (m.status === "FINISHED") return "FT";
   return m.status;
 }
 
