@@ -29,16 +29,11 @@ export async function GET(req: NextRequest) {
     scorers_sample: scorers.slice(0, 3).map((s) => ({ name: s.player.name, goals: s.goals })),
     finished_count: finished.length,
     details_fetched: details.filter(Boolean).length,
-    details_sample: details.filter(Boolean).slice(0, 2).map((d) => ({
+    lineups_raw: details.filter(Boolean).slice(0, 1).map((d) => ({
       id: d!.id,
-      status: d!.status,
-      home: d!.homeTeam.name,
-      away: d!.awayTeam.name,
-      has_lineups: d!.lineups !== null,
-      home_startXI_count: d!.lineups?.homeTeam?.startXI?.length ?? 0,
-      home_first3: d!.lineups?.homeTeam?.startXI?.slice(0, 3).map((p) => ({ name: p.name, position: p.position })) ?? [],
-      home_gk: d!.lineups?.homeTeam?.startXI?.find((p) => p.position === "Goalkeeper")?.name ?? "NOT FOUND",
-      away_gk: d!.lineups?.awayTeam?.startXI?.find((p) => p.position === "Goalkeeper")?.name ?? "NOT FOUND",
+      lineups_keys: d!.lineups ? Object.keys(d!.lineups) : null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      lineups_full: d!.lineups as any,
     })),
   });
 }
