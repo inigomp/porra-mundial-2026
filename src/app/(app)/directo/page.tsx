@@ -284,7 +284,6 @@ export default async function DirectoPage() {
     })
   );
   const baseStandings = buildLeaderboard(baseBreakdowns, baseFixtures);
-  const top10Ids = new Set(baseStandings.slice(0, 10).map((e) => e.participantId));
 
   // 8. Scenario simulations (prediction-only — GK/killer shown separately)
   type ScenarioResult = {
@@ -660,13 +659,7 @@ export default async function DirectoPage() {
                             <span className="text-[#6b7280] text-xs w-5 text-right font-mono shrink-0">
                               {e.projectedRank}
                             </span>
-                            <span
-                              className={`text-xs flex-1 truncate ${
-                                top10Ids.has(e.participantId)
-                                  ? "text-white font-medium"
-                                  : "text-[#9ca3af]"
-                              }`}
-                            >
+                            <span className="text-white font-medium text-xs flex-1 truncate">
                               {e.participantName.split(" ").slice(0, 2).join(" ")}
                             </span>
                             {e.pointsDelta > 0 && (
