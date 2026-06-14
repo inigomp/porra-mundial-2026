@@ -5,6 +5,10 @@ import { getStandingsCache } from "@/lib/standings-cache";
 import { getMatchesWithLiveScores } from "@/lib/live-scores";
 import type { Fixture, KillerGoals } from "@/lib/types";
 
+// Prevent Next.js from caching this route handler at the CDN level.
+// Individual fetch() calls inside still benefit from revalidate (Data Cache).
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/standings
  *
