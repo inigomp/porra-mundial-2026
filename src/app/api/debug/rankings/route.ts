@@ -4,6 +4,7 @@ import {
   getAllFinishedWCMatches,
   getMatchDetail,
 } from "@/lib/football-data-org";
+import { getEnrichedRankings } from "@/lib/enriched-rankings";
 
 export async function GET(req: NextRequest) {
   const secret = req.headers.get("x-admin-secret");
@@ -11,35 +12,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [scorers, finished] = await Promise.all([
-    getWCTopScorers(10),
+  const [rankings, finished] = await Promise.all([
+    getEnrichedRankings(),
     getAllFinishedWCMatches(),
   ]);
 
-  const recentIds = finished
-    .slice()
-    .sort((a, b) => new Date(b.utcDate).getTime() - new Date(a.utcDate).getTime())
-    .slice(0, 3)
-    .map((m) => m.id);
-
-  const details = await Promise.all(recentIds.map(getMatchDetail));
-
   return NextResponse.json({
-    scorers_count: scorers.length,
-    scorers_sample: scorers.slice(0, 3).map((s) => ({ name: s.player.name, team: s.team.name, goals: s.goals })),
     finished_count: finished.length,
-    details_fetched: details.filter(Boolean).length,
-    details_sample: details.filter(Boolean).slice(0, 2).map((d) => ({
-      id: d!.id,
-      status: d!.status,
-      home: d!.homeTeam.name,
-      away: d!.awayTeam.name,
-      score: d!.score.fullTime,
-      has_lineups: d!.lineups !== null,
-      home_startXI_count: d!.lineups?.homeTeam?.startXI?.length ?? 0,
-      home_first3: d!.lineups?.homeTeam?.startXI?.slice(0, 3).map((p) => ({ name: p.name, position: p.position })) ?? [],
-      home_gk: d!.lineups?.homeTeam?.startXI?.find((p) => p.position === "Goalkeeper")?.name ?? "NOT FOUND",
-      away_gk: d!.lineups?.awayTeam?.startXI?.find((p) => p.position === "Goalkeeper")?.name ?? "NOT FOUND",
-    })),
+    finished_teams: finished.map((m) => ({ home: m.homeTeam.name, away: m.awayTeam.name, score: m.score.fullTime })),
+    killerMundial: rankings.killerMundial,
+    killerSeleccion: rankings.killerSeleccion,
+    topGoalkeepers: rankings.topGoalkeepers,
   });
 }
