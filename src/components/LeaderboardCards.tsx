@@ -1,5 +1,5 @@
-import { PARTICIPANTS } from "@/lib/participants";
-import { getStandingsCache } from "@/lib/standings-cache";
+import { getEnrichedRankings } from "@/lib/enriched-rankings";
+import type { GkRankEntry, KillerRankEntry } from "@/lib/enriched-rankings";
 
 function RankBadge({ pos }: { pos: number }) {
   if (pos === 1) return <span className="text-base leading-none">🥇</span>;
@@ -8,44 +8,12 @@ function RankBadge({ pos }: { pos: number }) {
   return <span className="text-[#6b7280] text-xs font-bold w-5 text-center tabular-nums">{pos}</span>;
 }
 
-export default function LeaderboardCards() {
-  const cache = getStandingsCache();
-  const killerGoals = cache?.killerGoals ?? {};
-  const goalkeeperPoints = cache?.goalkeeperPoints ?? {};
-  const hasData = !!cache;
+export default async function LeaderboardCards() {
+  const { killerMundial, killerSeleccion, topGoalkeepers } = await getEnrichedRankings();
 
-  // Top 5 goalkeepers by points
-  const gkMap = new Map<string, number>();
-  for (const p of PARTICIPANTS) {
-    const pts = goalkeeperPoints[p.id] ?? 0;
-    gkMap.set(p.goalkeeper, Math.max(gkMap.get(p.goalkeeper) ?? 0, pts));
-  }
-  const gkRanking = [...gkMap.entries()]
-    .map(([name, pts]) => ({ name, pts }))
-    .sort((a, b) => b.pts - a.pts)
-    .slice(0, 5);
-
-  // Killers by goals — mundial
-  const mundialMap = new Map<string, number>();
-  for (const p of PARTICIPANTS) {
-    const goals = killerGoals[p.id]?.mundialGoals ?? 0;
-    mundialMap.set(p.killerMundial, Math.max(mundialMap.get(p.killerMundial) ?? 0, goals));
-  }
-  const mundialRanking = [...mundialMap.entries()]
-    .map(([name, goals]) => ({ name, goals }))
-    .sort((a, b) => b.goals - a.goals)
-    .slice(0, 5);
-
-  // Killers by goals — selección
-  const seleccionMap = new Map<string, number>();
-  for (const p of PARTICIPANTS) {
-    const goals = killerGoals[p.id]?.seleccionGoals ?? 0;
-    seleccionMap.set(p.killerSeleccion, Math.max(seleccionMap.get(p.killerSeleccion) ?? 0, goals));
-  }
-  const seleccionRanking = [...seleccionMap.entries()]
-    .map(([name, goals]) => ({ name, goals }))
-    .sort((a, b) => b.goals - a.goals)
-    .slice(0, 5);
+  const hasGkData = topGoalkeepers.some((g) => g.pts !== 0);
+  const hasMundialData = killerMundial.some((k) => k.goals > 0);
+  const hasSeleccionData = killerSeleccion.some((k) => k.goals > 0);
 
   return (
     <div className="space-y-4">
@@ -54,11 +22,11 @@ export default function LeaderboardCards() {
         <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2">
           🧤 <span>Top porteros</span>
         </h3>
-        {!hasData ? (
-          <p className="text-[#4b5563] text-xs">Pendiente de sincronización con la API</p>
+        {!hasGkData ? (
+          <p className="text-[#4b5563] text-xs">Sin partidos disputados aún</p>
         ) : (
           <div className="space-y-2.5">
-            {gkRanking.map((gk, i) => (
+            {topGoalkeepers.map((gk: GkRankEntry, i) => (
               <div key={gk.name} className="flex items-center gap-2">
                 <div className="w-5 flex justify-center flex-shrink-0">
                   <RankBadge pos={i + 1} />
@@ -78,11 +46,11 @@ export default function LeaderboardCards() {
         <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2">
           ⚽ <span>Killer mundial</span>
         </h3>
-        {!hasData ? (
-          <p className="text-[#4b5563] text-xs">Pendiente de sincronización con la API</p>
+        {!hasMundialData ? (
+          <p className="text-[#4b5563] text-xs">Sin goles registrados aún</p>
         ) : (
           <div className="space-y-2.5">
-            {mundialRanking.map((k, i) => (
+            {killerMundial.map((k: KillerRankEntry, i) => (
               <div key={k.name} className="flex items-center gap-2">
                 <div className="w-5 flex justify-center flex-shrink-0">
                   <RankBadge pos={i + 1} />
@@ -102,11 +70,11 @@ export default function LeaderboardCards() {
         <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2">
           🔴 <span>Killer selección</span>
         </h3>
-        {!hasData ? (
-          <p className="text-[#4b5563] text-xs">Pendiente de sincronización con la API</p>
+        {!hasSeleccionData ? (
+          <p className="text-[#4b5563] text-xs">Sin goles registrados aún</p>
         ) : (
           <div className="space-y-2.5">
-            {seleccionRanking.map((k, i) => (
+            {killerSeleccion.map((k: KillerRankEntry, i) => (
               <div key={k.name} className="flex items-center gap-2">
                 <div className="w-5 flex justify-center flex-shrink-0">
                   <RankBadge pos={i + 1} />
