@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { PARTICIPANTS } from "@/lib/participants";
 import ProfileSwitcher from "./ProfileSwitcher";
+import ParticipantSearch from "./ParticipantSearch";
 
 export default async function Topbar() {
   const cookieStore = await cookies();
@@ -28,12 +29,8 @@ export default async function Topbar() {
       </div>
 
       {/* Search — hidden on mobile */}
-      <div className="hidden md:block flex-1 max-w-xs">
-        <input
-          type="search"
-          placeholder="Buscar predicciones..."
-          className="w-full bg-[#1e2130] border border-[#2a2d3a] rounded-full px-4 py-1.5 text-xs text-[#9ca3af] placeholder-[#4b5563] outline-none focus:border-[#ffd700] transition-colors"
-        />
+      <div className="hidden md:flex flex-1 max-w-xs">
+        <ParticipantSearch participants={PARTICIPANTS.map((p) => ({ id: p.id, name: p.name }))} />
       </div>
 
       <div className="flex-1" />
