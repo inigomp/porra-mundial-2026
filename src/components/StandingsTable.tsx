@@ -1,10 +1,11 @@
 import { cookies } from "next/headers";
 import { Fragment } from "react";
+import Link from "next/link";
 import { Crown } from "lucide-react";
 import { buildLeaderboard, calculateParticipantScore } from "@/lib/scoring-engine";
-import { PARTICIPANTS, MATCHES } from "@/lib/participants";
+import { PARTICIPANTS } from "@/lib/participants";
 import { getStandingsCache } from "@/lib/standings-cache";
-import { applyOverrides } from "@/lib/score-overrides";
+import { getMatchesWithLiveScores } from "@/lib/live-scores";
 import type { Fixture, KillerGoals, StandingEntry } from "@/lib/types";
 
 const dotColor = {
@@ -17,7 +18,7 @@ async function getStandings(): Promise<StandingEntry[]> {
   const cached = getStandingsCache();
   if (cached) return cached.standings;
 
-  const matches = applyOverrides(MATCHES);
+  const matches = await getMatchesWithLiveScores();
   const fixtures: Fixture[] = matches.map((m) => ({
     id: m.id,
     homeTeam: m.homeTeam,
@@ -110,7 +111,12 @@ export default async function StandingsTable() {
                         </div>
                         <div>
                           <div className="flex items-center gap-1.5">
-                            <p className="font-semibold text-white text-sm">{entry.participantName}</p>
+                            <Link
+                              href={`/predicciones/${entry.participantId}`}
+                              className="font-semibold text-white text-sm hover:text-[#ffd700] transition-colors"
+                            >
+                              {entry.participantName}
+                            </Link>
                             {isCurrentUser && (
                               <span className="bg-[#ffd700] text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full">
                                 TÚ
