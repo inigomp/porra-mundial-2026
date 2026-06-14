@@ -11,6 +11,9 @@ export interface DatosRow {
   killerMundial: string;
   killerSeleccion: string;
   goalkeeper: string;
+  finalista1: string;
+  finalista2: string;
+  campeon: string;
 }
 
 function norm(s: string): string {
@@ -30,6 +33,9 @@ export default function DatosTable({ rows }: { rows: DatosRow[] }) {
     killerMundial: "",
     killerSeleccion: "",
     goalkeeper: "",
+    finalista1: "",
+    finalista2: "",
+    campeon: "",
   });
 
   const filtered = useMemo(
@@ -39,7 +45,10 @@ export default function DatosTable({ rows }: { rows: DatosRow[] }) {
           matches(r.participantName, f.name) &&
           matches(r.killerMundial, f.killerMundial) &&
           matches(r.killerSeleccion, f.killerSeleccion) &&
-          matches(r.goalkeeper, f.goalkeeper)
+          matches(r.goalkeeper, f.goalkeeper) &&
+          matches(r.finalista1, f.finalista1) &&
+          matches(r.finalista2, f.finalista2) &&
+          matches(r.campeon, f.campeon)
       ),
     [rows, f]
   );
@@ -49,7 +58,7 @@ export default function DatosTable({ rows }: { rows: DatosRow[] }) {
   return (
     <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl overflow-hidden">
       {/* Filter row */}
-      <div className="grid grid-cols-[3rem_1fr_1fr_1fr_1fr] gap-2 px-4 py-3 border-b border-[#2a2d3a] bg-[#13151f]">
+      <div className="grid grid-cols-[2.5rem_1fr_1fr_1fr_1fr_1fr_1fr_1fr] gap-2 px-4 py-3 border-b border-[#2a2d3a] bg-[#13151f]">
         <div />
         <input
           value={f.name}
@@ -75,15 +84,36 @@ export default function DatosTable({ rows }: { rows: DatosRow[] }) {
           placeholder="Portero…"
           className="bg-[#1a1d26] border border-[#2a2d3a] rounded px-2 py-1 text-xs text-white placeholder-[#4b5563] outline-none focus:border-[#ffd700] transition-colors"
         />
+        <input
+          value={f.finalista1}
+          onChange={(e) => setF((p) => ({ ...p, finalista1: e.target.value }))}
+          placeholder="Finalista 1…"
+          className="bg-[#1a1d26] border border-[#2a2d3a] rounded px-2 py-1 text-xs text-white placeholder-[#4b5563] outline-none focus:border-[#ffd700] transition-colors"
+        />
+        <input
+          value={f.finalista2}
+          onChange={(e) => setF((p) => ({ ...p, finalista2: e.target.value }))}
+          placeholder="Finalista 2…"
+          className="bg-[#1a1d26] border border-[#2a2d3a] rounded px-2 py-1 text-xs text-white placeholder-[#4b5563] outline-none focus:border-[#ffd700] transition-colors"
+        />
+        <input
+          value={f.campeon}
+          onChange={(e) => setF((p) => ({ ...p, campeon: e.target.value }))}
+          placeholder="Campeón…"
+          className="bg-[#1a1d26] border border-[#2a2d3a] rounded px-2 py-1 text-xs text-white placeholder-[#4b5563] outline-none focus:border-[#ffd700] transition-colors"
+        />
       </div>
 
       {/* Column headers */}
-      <div className="grid grid-cols-[3rem_1fr_1fr_1fr_1fr] gap-2 px-4 py-2.5 border-b border-[#2a2d3a] text-[#6b7280] text-xs font-semibold uppercase tracking-widest">
+      <div className="grid grid-cols-[2.5rem_1fr_1fr_1fr_1fr_1fr_1fr_1fr] gap-2 px-4 py-2.5 border-b border-[#2a2d3a] text-[#6b7280] text-xs font-semibold uppercase tracking-widest">
         <span className="text-right">#</span>
         <span>Participante</span>
         <span>Killer Mundial</span>
         <span>Killer España</span>
         <span>Portero</span>
+        <span>Finalista 1</span>
+        <span>Finalista 2</span>
+        <span>Campeón</span>
       </div>
 
       {/* Rows */}
@@ -96,9 +126,9 @@ export default function DatosTable({ rows }: { rows: DatosRow[] }) {
           filtered.map((r) => (
             <div
               key={r.participantId}
-              className="grid grid-cols-[3rem_1fr_1fr_1fr_1fr] gap-2 px-4 py-3 border-b border-[#2a2d3a] last:border-0 hover:bg-[#1e2130] items-center"
+              className="grid grid-cols-[2.5rem_1fr_1fr_1fr_1fr_1fr_1fr_1fr] gap-2 px-4 py-3 border-b border-[#2a2d3a] last:border-0 hover:bg-[#1e2130] items-start"
             >
-              <span className="text-right text-[#6b7280] text-xs font-mono tabular-nums">
+              <span className="text-right text-[#6b7280] text-xs font-mono tabular-nums self-start pt-1">
                 {r.rank}
               </span>
               <div className="min-w-0">
@@ -113,6 +143,9 @@ export default function DatosTable({ rows }: { rows: DatosRow[] }) {
               <span className="text-[#9ca3af] text-sm truncate">{r.killerMundial}</span>
               <span className="text-[#9ca3af] text-sm truncate">{r.killerSeleccion}</span>
               <span className="text-[#9ca3af] text-sm truncate">{r.goalkeeper}</span>
+              <span className="text-[#9ca3af] text-sm truncate">{r.finalista1 || '—'}</span>
+              <span className="text-[#9ca3af] text-sm truncate">{r.finalista2 || '—'}</span>
+              <span className="text-[#ffd700] text-sm font-medium truncate">{r.campeon || '—'}</span>
             </div>
           ))
         )}
@@ -127,7 +160,7 @@ export default function DatosTable({ rows }: { rows: DatosRow[] }) {
         </span>
         {hasFilters && (
           <button
-            onClick={() => setF({ name: "", killerMundial: "", killerSeleccion: "", goalkeeper: "" })}
+            onClick={() => setF({ name: "", killerMundial: "", killerSeleccion: "", goalkeeper: "", finalista1: "", finalista2: "", campeon: "" })}
             className="text-[#6b7280] text-xs hover:text-white transition-colors"
           >
             Limpiar filtros ×

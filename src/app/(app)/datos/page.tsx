@@ -1,5 +1,6 @@
 import { buildLeaderboard, calculateParticipantScore } from "@/lib/scoring-engine";
 import { PARTICIPANTS } from "@/lib/participants";
+import { PARTICIPANT_FINALS } from "@/lib/participant-finals";
 import { getStandingsCache } from "@/lib/standings-cache";
 import { getMatchesWithLiveScores } from "@/lib/live-scores";
 import type { Fixture, KillerGoals } from "@/lib/types";
@@ -40,15 +41,21 @@ async function getRows(): Promise<DatosRow[]> {
     pointsMap = new Map(standings.map((s) => [s.participantId, s.points]));
   }
 
-  return PARTICIPANTS.map((p) => ({
-    rank: rankMap.get(p.id) ?? 999,
-    participantId: p.id,
-    participantName: p.name,
-    points: pointsMap.get(p.id) ?? 0,
-    killerMundial: p.killerMundial,
-    killerSeleccion: p.killerSeleccion,
-    goalkeeper: p.goalkeeper,
-  })).sort((a, b) => a.rank - b.rank);
+  return PARTICIPANTS.map((p) => {
+    const finals = PARTICIPANT_FINALS[p.id];
+    return {
+      rank: rankMap.get(p.id) ?? 999,
+      participantId: p.id,
+      participantName: p.name,
+      points: pointsMap.get(p.id) ?? 0,
+      killerMundial: p.killerMundial,
+      killerSeleccion: p.killerSeleccion,
+      goalkeeper: p.goalkeeper,
+      finalista1: finals?.finalista1 ?? '',
+      finalista2: finals?.finalista2 ?? '',
+      campeon: finals?.campeon ?? '',
+    };
+  }).sort((a, b) => a.rank - b.rank);
 }
 
 export default async function DatosPage() {
