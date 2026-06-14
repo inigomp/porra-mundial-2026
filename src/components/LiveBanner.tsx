@@ -13,7 +13,6 @@ const FLAG: Record<string, string> = {
   "South Korea": "🇰🇷", "Czechia": "🇨🇿", "South Africa": "🇿🇦", "Haiti": "🇭🇹",
   "Paraguay": "🇵🇾", "Ivory Coast": "🇨🇮", "Qatar": "🇶🇦", "Bosnia and Herzegovina": "🇧🇦",
   "Curaçao": "🇨🇼",
-  "Morocco": "🇲🇦",
   "United States": "🇺🇸",
   "Korea Republic": "🇰🇷",
   "Bosnia-Herzegovina": "🇧🇦",
