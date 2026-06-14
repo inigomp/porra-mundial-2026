@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import Link from "next/link";
 import { buildLeaderboard, calculateParticipantScore } from "@/lib/scoring-engine";
 import { PARTICIPANTS } from "@/lib/participants";
 import { getStandingsCache } from "@/lib/standings-cache";
@@ -69,14 +70,17 @@ export default async function ClasificacionPage() {
                 <PodiumBadge pos={idx + 1} />
               </div>
               <div className="min-w-0">
-                <span className="text-white text-sm font-medium truncate block">
+                <Link
+                  href={`/predicciones/${entry.participantId}`}
+                  className="text-white text-sm font-medium truncate block hover:text-[#00c853] transition-colors"
+                >
                   {entry.participantName}
                   {isMe && (
                     <span className="ml-2 text-[#00c853] text-xs font-bold bg-[#00c853]/20 px-1.5 py-0.5 rounded">
                       TÚ
                     </span>
                   )}
-                </span>
+                </Link>
               </div>
               <div className="text-right">
                 <span className="text-[#00c853] font-bold text-sm">{entry.points}</span>
