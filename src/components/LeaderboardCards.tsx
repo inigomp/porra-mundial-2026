@@ -11,9 +11,7 @@ function RankBadge({ pos }: { pos: number }) {
 export default async function LeaderboardCards() {
   const { killerMundial, killerSeleccion, topGoalkeepers } = await getEnrichedRankings();
 
-  const hasGkData = topGoalkeepers.some((g) => g.pts !== 0);
-  const hasMundialData = killerMundial.some((k) => k.goals > 0);
-  const hasSeleccionData = killerSeleccion.some((k) => k.goals > 0);
+  const spainYetToScore = killerSeleccion.length > 0 && killerSeleccion.every((k) => k.goals === 0);
 
   return (
     <div className="space-y-4">
@@ -22,7 +20,7 @@ export default async function LeaderboardCards() {
         <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2">
           🧤 <span>Top porteros</span>
         </h3>
-        {!hasGkData ? (
+        {topGoalkeepers.length === 0 ? (
           <p className="text-[#4b5563] text-xs">Sin partidos disputados aún</p>
         ) : (
           <div className="space-y-2.5">
@@ -46,7 +44,7 @@ export default async function LeaderboardCards() {
         <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2">
           ⚽ <span>Killer mundial</span>
         </h3>
-        {!hasMundialData ? (
+        {killerMundial.length === 0 ? (
           <p className="text-[#4b5563] text-xs">Sin goles registrados aún</p>
         ) : (
           <div className="space-y-2.5">
@@ -70,22 +68,27 @@ export default async function LeaderboardCards() {
         <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2">
           🔴 <span>Killer selección</span>
         </h3>
-        {!hasSeleccionData ? (
+        {killerSeleccion.length === 0 ? (
           <p className="text-[#4b5563] text-xs">Sin goles registrados aún</p>
         ) : (
-          <div className="space-y-2.5">
-            {killerSeleccion.map((k: KillerRankEntry, i) => (
-              <div key={k.name} className="flex items-center gap-2">
-                <div className="w-5 flex justify-center flex-shrink-0">
-                  <RankBadge pos={i + 1} />
+          <>
+            {spainYetToScore && (
+              <p className="text-[#4b5563] text-xs mb-2">España aún no ha marcado</p>
+            )}
+            <div className="space-y-2.5">
+              {killerSeleccion.map((k: KillerRankEntry, i) => (
+                <div key={k.name} className="flex items-center gap-2">
+                  <div className="w-5 flex justify-center flex-shrink-0">
+                    <RankBadge pos={i + 1} />
+                  </div>
+                  <span className={`text-sm flex-1 min-w-0 truncate ${spainYetToScore ? "text-[#6b7280]" : "text-white"}`}>{k.name}</span>
+                  <span className="text-[#00c853] font-bold text-sm tabular-nums flex-shrink-0">
+                    {k.goals} gol{k.goals !== 1 ? "es" : ""}
+                  </span>
                 </div>
-                <span className="text-white text-sm flex-1 min-w-0 truncate">{k.name}</span>
-                <span className="text-[#00c853] font-bold text-sm tabular-nums flex-shrink-0">
-                  {k.goals} gol{k.goals !== 1 ? "es" : ""}
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>

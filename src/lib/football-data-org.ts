@@ -340,6 +340,46 @@ export function goalsByPlayer(
   }).length;
 }
 
+export interface FdoScorer {
+  player: { id: number; name: string };
+  team: FdoTeamRef;
+  goals: number;
+  assists: number | null;
+  penalties: number | null;
+}
+
+/** Top scorers for the WC (single API call, covers full tournament) */
+export async function getWCTopScorers(limit = 10): Promise<FdoScorer[]> {
+  if (!hasToken()) return [];
+  try {
+    const res = await fetch(`${BASE_URL}/competitions/WC/scorers?limit=${limit}`, {
+      headers: apiHeaders(),
+      next: { revalidate: 60 },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.scorers ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** All finished WC matches since tournament start */
+export async function getAllFinishedWCMatches(): Promise<FdoMatchSummary[]> {
+  if (!hasToken()) return [];
+  try {
+    const res = await fetch(`${BASE_URL}/competitions/WC/matches?status=FINISHED`, {
+      headers: apiHeaders(),
+      next: { revalidate: 60 },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.matches ?? [];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Map football-data.org status to our internal Fixture status
  */
