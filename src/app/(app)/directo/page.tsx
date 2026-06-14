@@ -304,22 +304,41 @@ export default async function DirectoPage() {
     }>;
   };
 
+  // Compute feasible final scores from current live score (never go backwards).
+  // Base: current score or 0-0 if match hasn't started.
+  const curH = focusScore?.h ?? 0;
+  const curA = focusScore?.a ?? 0;
+  // Home win: minimum final where home > away, both ≥ current
+  const hwH = curH > curA ? curH : curA + 1;
+  const hwA = curA;
+  // Draw: minimum final draw ≥ current
+  const dwD = Math.max(curH, curA);
+  // Away win: minimum final where away > home, both ≥ current
+  const awH = curH;
+  const awA = curA > curH ? curA : curH + 1;
+
   const scenariosData: ScenarioResult[] = focusId
     ? [
         {
           label: `Gana ${focusHomeDisplay}`,
-          h: 1,
-          a: 0,
-          gkHomeGoals: 0,
-          gkAwayGoals: 1,
+          h: hwH,
+          a: hwA,
+          gkHomeGoals: hwA,  // home GK concedes away's goals
+          gkAwayGoals: hwH,  // away GK concedes home's goals
         },
-        { label: "Empate", h: 0, a: 0, gkHomeGoals: 0, gkAwayGoals: 0 },
+        {
+          label: "Empate",
+          h: dwD,
+          a: dwD,
+          gkHomeGoals: dwD,
+          gkAwayGoals: dwD,
+        },
         {
           label: `Gana ${focusAwayDisplay}`,
-          h: 0,
-          a: 1,
-          gkHomeGoals: 1,
-          gkAwayGoals: 0,
+          h: awH,
+          a: awA,
+          gkHomeGoals: awA,
+          gkAwayGoals: awH,
         },
       ].map((s) => {
         const sim = simulateLiveScenario(
@@ -584,11 +603,11 @@ export default async function DirectoPage() {
                         {s.label}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[#6b7280] text-xs">
-                          rep. {s.h}–{s.a}
+                        <span className="text-[#9ca3af] text-xs font-mono font-bold">
+                          {s.h}–{s.a}
                         </span>
                         <span className="text-[#2a2d3a]">·</span>
-                        <span className="text-[#9ca3af] text-xs">
+                        <span className="text-[#6b7280] text-xs">
                           {s.correctPredCount} aciertan
                         </span>
                       </div>
@@ -682,7 +701,7 @@ export default async function DirectoPage() {
                 ))}
               </div>
               <p className="text-[#6b7280] text-xs mt-2">
-                Escenarios basados en marcadores representativos (1-0, 0-0, 0-1).
+                Marcadores calculados desde el resultado actual (ningún equipo puede retroceder en el marcador).
                 Solo incluyen puntos de predicción; portería y killer se muestran arriba.
               </p>
             </section>
