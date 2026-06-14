@@ -1,8 +1,9 @@
 import { getLiveWCMatches, getRecentWCMatches } from "@/lib/football-data-org";
 import type { FdoMatchSummary } from "@/lib/football-data-org";
-import { MATCHES } from "@/lib/participants";
-import { PARTICIPANTS } from "@/lib/participants";
+import { MATCHES, PARTICIPANTS } from "@/lib/participants";
 import { applyOverrides } from "@/lib/score-overrides";
+import { cookies } from "next/headers";
+import { normStr } from "@/lib/football-data-org";
 
 const FLAG: Record<string, string> = {
   "Brazil": "🇧🇷", "France": "🇫🇷", "Argentina": "🇦🇷", "England": "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
@@ -38,6 +39,23 @@ function statusLabel(m: FdoMatchSummary): string {
 }
 
 export default async function LiveBanner() {
+  const cookieStore = await cookies();
+  const identityId = cookieStore.get("porra_identity")?.value;
+  const me = identityId ? PARTICIPANTS.find((p) => p.id === identityId) : null;
+
+  /** Find my prediction for a match by fuzzy-matching team names */
+  function myPred(homeTeamApi: string, awayTeamApi: string) {
+    if (!me) return null;
+    const h = normStr(homeTeamApi);
+    const a = normStr(awayTeamApi);
+    const staticMatch = applyOverrides(MATCHES).find((m) => {
+      return normStr(m.homeTeam).split(" ").some((w) => w.length > 3 && h.includes(w)) &&
+             normStr(m.awayTeam).split(" ").some((w) => w.length > 3 && a.includes(w));
+    });
+    if (!staticMatch) return null;
+    return me.predictions[staticMatch.id] ?? null;
+  }
+
   // 1. Try API live matches
   let matches = await getLiveWCMatches();
   let isLive = matches.length > 0;
@@ -76,14 +94,19 @@ export default async function LiveBanner() {
         <span className="bg-[#2a2d3a] text-[#6b7280] text-xs font-bold px-2.5 py-1 rounded-full shrink-0">
           ÚLTIMO RESULTADO
         </span>
-        <div className="flex items-center gap-3 flex-1 justify-center min-w-[200px]">
-          <span className="text-2xl">{homeFlag}</span>
-          <span className="text-[#9ca3af] text-sm font-medium hidden sm:inline">{lastMatch.homeTeam}</span>
-          <span className="text-white font-black text-2xl tabular-nums">
-            {lastMatch.homeScore} – {lastMatch.awayScore}
-          </span>
-          <span className="text-[#9ca3af] text-sm font-medium hidden sm:inline">{lastMatch.awayTeam}</span>
-          <span className="text-2xl">{awayFlag}</span>
+        <div className="flex flex-col items-center flex-1 min-w-[200px] gap-1">
+          <div className="flex items-center gap-3 justify-center">
+            <span className="text-2xl">{homeFlag}</span>
+            <span className="text-[#9ca3af] text-sm font-medium hidden sm:inline">{lastMatch.homeTeam}</span>
+            <span className="text-white font-black text-2xl tabular-nums">
+              {lastMatch.homeScore} – {lastMatch.awayScore}
+            </span>
+            <span className="text-[#9ca3af] text-sm font-medium hidden sm:inline">{lastMatch.awayTeam}</span>
+            <span className="text-2xl">{awayFlag}</span>
+          </div>
+          {(() => { const p = myPred(lastMatch.homeTeam, lastMatch.awayTeam); return p ? (
+            <p className="text-[#6b7280] text-xs">mi pred: <span className="text-[#9ca3af] font-semibold tabular-nums">{p.homeGoals} – {p.awayGoals}</span></p>
+          ) : null; })()}
         </div>
         <span className="text-[#6b7280] text-xs shrink-0">FT</span>
       </div>
@@ -136,6 +159,9 @@ export default async function LiveBanner() {
           }`}>
             {matchIsLive ? `${label} MIN` : label}
           </span>
+          {(() => { const p = myPred(match.homeTeam.name, match.awayTeam.name); return p ? (
+            <p className="text-[#6b7280] text-xs mt-1">mi pred: <span className="text-[#9ca3af] font-semibold tabular-nums">{p.homeGoals} – {p.awayGoals}</span></p>
+          ) : null; })()}
         </div>
 
         <div className="flex items-center gap-3">
