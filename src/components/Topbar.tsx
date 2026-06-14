@@ -1,7 +1,8 @@
-import { Bell, Settings } from "lucide-react";
+import { Bell } from "lucide-react";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { PARTICIPANTS } from "@/lib/participants";
+import ProfileSwitcher from "./ProfileSwitcher";
 
 export default async function Topbar() {
   const cookieStore = await cookies();
@@ -42,9 +43,7 @@ export default async function Topbar() {
         <button className="text-[#6b7280] hover:text-white transition-colors">
           <Bell size={16} />
         </button>
-        <button className="text-[#6b7280] hover:text-white transition-colors">
-          <Settings size={16} />
-        </button>
+        <ProfileSwitcher currentId={identityId ?? null} />
         {participant ? (
           <div className="flex items-center gap-2 ml-1">
             <div className="w-7 h-7 rounded-full bg-[#ffd700] flex items-center justify-center text-black font-bold text-xs">
