@@ -13,14 +13,11 @@
 
 import {
   getAllFinishedWCMatches,
-  getLiveWCMatches,
   getMatchDetail,
   getWCTopScorers,
   analyzeGKEvents,
   goalsAgainstTeam,
   normStr,
-  playerKey,
-  GK_ALIASES,
   type FdoMatchDetail,
 } from "./football-data-org";
 import { goalkeeperGoalsConcededScore } from "./scoring-engine";
@@ -30,7 +27,7 @@ export type { KillerRankEntry, GkRankEntry, EnrichedRankings };
 
 /** Spanish forwards shown when Spain hasn't scored yet */
 const SPAIN_FALLBACK_FORWARDS = [
-  "Álvaro Morata",
+  "Borja Iglesias",
   "Mikel Oyarzabal",
   "Lamine Yamal",
   "Nico Williams",
@@ -58,11 +55,11 @@ export async function getEnrichedRankings(): Promise<EnrichedRankings> {
   const empty: EnrichedRankings = { killerMundial: [], killerSeleccion: [], topGoalkeepers: [] };
 
   try {
-    // Parallel: top scorers + all finished matches + live (for dedup)
-    const [topScorers, finishedMatches, liveMatches] = await Promise.all([
+    // 2 API calls in parallel — stays safely within 10 req/min on cold start
+    // (10 req/min budget: 2 list + 7 detail = 9 total)
+    const [topScorers, finishedMatches] = await Promise.all([
       getWCTopScorers(10),
       getAllFinishedWCMatches(),
-      getLiveWCMatches(),
     ]);
 
     // ── Killer mundial ───────────────────────────────────────────────────────
@@ -72,17 +69,15 @@ export async function getEnrichedRankings(): Promise<EnrichedRankings> {
       .map((s) => ({ name: s.player.name, goals: s.goals }));
 
     // ── Fetch match details (GK retrospective + Spain goals) ─────────────────
-    // Deduplicate live against finished, take most recent, cap at 10
-    const liveIds = new Set(liveMatches.map((m) => m.id));
-    const candidateMatches = [
-      ...finishedMatches,
-      ...liveMatches.filter((m) => !liveIds.has(m.id)),
-    ]
+    // Take the 7 most recent finished matches; cap strictly at 7 to stay under rate limit
+    const detailIds = finishedMatches
+      .slice() // don't mutate
       .sort((a, b) => new Date(b.utcDate).getTime() - new Date(a.utcDate).getTime())
-      .slice(0, 10);
+      .slice(0, 7)
+      .map((m) => m.id);
 
-    const details: FdoMatchDetail[] = candidateMatches.length > 0
-      ? (await Promise.all(candidateMatches.map((m) => getMatchDetail(m.id))))
+    const details: FdoMatchDetail[] = detailIds.length > 0
+      ? (await Promise.all(detailIds.map(getMatchDetail)))
           .filter((d): d is FdoMatchDetail => d !== null)
       : [];
 
