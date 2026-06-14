@@ -3,7 +3,7 @@ import type { FdoMatchSummary } from "@/lib/football-data-org";
 import { MATCHES, PARTICIPANTS } from "@/lib/participants";
 import { applyOverrides } from "@/lib/score-overrides";
 import { cookies } from "next/headers";
-import { normStr } from "@/lib/football-data-org";
+import { teamsMatch } from "@/lib/live-scores";
 
 const FLAG: Record<string, string> = {
   "Brazil": "🇧🇷", "France": "🇫🇷", "Argentina": "🇦🇷", "England": "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
@@ -43,15 +43,12 @@ export default async function LiveBanner() {
   const identityId = cookieStore.get("porra_identity")?.value;
   const me = identityId ? PARTICIPANTS.find((p) => p.id === identityId) : null;
 
-  /** Find my prediction for a match by fuzzy-matching team names */
+  /** Find my prediction for a match by team name (EN API names → ES static names) */
   function myPred(homeTeamApi: string, awayTeamApi: string) {
     if (!me) return null;
-    const h = normStr(homeTeamApi);
-    const a = normStr(awayTeamApi);
-    const staticMatch = applyOverrides(MATCHES).find((m) => {
-      return normStr(m.homeTeam).split(" ").some((w) => w.length > 3 && h.includes(w)) &&
-             normStr(m.awayTeam).split(" ").some((w) => w.length > 3 && a.includes(w));
-    });
+    const staticMatch = applyOverrides(MATCHES).find((m) =>
+      teamsMatch(homeTeamApi, m.homeTeam) && teamsMatch(awayTeamApi, m.awayTeam)
+    );
     if (!staticMatch) return null;
     return me.predictions[staticMatch.id] ?? null;
   }
