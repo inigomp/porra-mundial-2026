@@ -26,19 +26,20 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     scorers_count: scorers.length,
+    scorers_sample: scorers.slice(0, 3).map((s) => ({ name: s.player.name, team: s.team.name, goals: s.goals })),
     finished_count: finished.length,
-    detail_raw: details.filter(Boolean).slice(0, 1).map((d) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const raw = d as any;
-      return {
-        id: raw.id,
-        top_level_keys: Object.keys(raw),
-        // Check common lineup field names
-        has_lineups: raw.lineups,
-        has_lineup: raw.lineup,
-        has_homeTeam_lineup: raw.homeTeam?.lineup,
-        has_homeTeam_startXI: raw.homeTeam?.startXI,
-      };
-    }),
+    details_fetched: details.filter(Boolean).length,
+    details_sample: details.filter(Boolean).slice(0, 2).map((d) => ({
+      id: d!.id,
+      status: d!.status,
+      home: d!.homeTeam.name,
+      away: d!.awayTeam.name,
+      score: d!.score.fullTime,
+      has_lineups: d!.lineups !== null,
+      home_startXI_count: d!.lineups?.homeTeam?.startXI?.length ?? 0,
+      home_first3: d!.lineups?.homeTeam?.startXI?.slice(0, 3).map((p) => ({ name: p.name, position: p.position })) ?? [],
+      home_gk: d!.lineups?.homeTeam?.startXI?.find((p) => p.position === "Goalkeeper")?.name ?? "NOT FOUND",
+      away_gk: d!.lineups?.awayTeam?.startXI?.find((p) => p.position === "Goalkeeper")?.name ?? "NOT FOUND",
+    })),
   });
 }
