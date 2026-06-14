@@ -9,7 +9,8 @@
  */
 import { MATCHES } from "./participants";
 import { applyOverrides, setSyncedScoresBulk } from "./score-overrides";
-import { getTodayWCMatches } from "./football-data-org";
+import { getLiveWCMatches, getTodayWCMatches } from "./football-data-org";
+import type { FdoMatchSummary } from "./football-data-org";
 
 export type MatchWithScore = {
   id: string;
@@ -88,20 +89,38 @@ export async function getMatchesWithLiveScores(): Promise<MatchWithScore[]> {
 
   if (nullMatches.length === 0) return withCached;
 
-  // Try to fill nulls from FDO API (today's finished matches)
+  // Try to fill nulls from FDO API: live first (most accurate), then today's
   try {
-    const todayFdo = await getTodayWCMatches();
-    const finished = todayFdo.filter(
+    const [liveMatches, todayMatches] = await Promise.all([
+      getLiveWCMatches(),
+      getTodayWCMatches(),
+    ]);
+
+    // Merge: live takes priority over today (live has real-time scores)
+    const liveIds = new Set(liveMatches.map((m) => m.id));
+    const allFdo: FdoMatchSummary[] = [
+      ...liveMatches,
+      ...todayMatches.filter((m) => !liveIds.has(m.id)),
+    ];
+
+    const relevant = allFdo.filter(
       (m) => m.status === "FINISHED" || m.status === "IN_PLAY" || m.status === "PAUSED"
     );
-    if (finished.length === 0) return withCached;
+    if (relevant.length === 0) return withCached;
 
     const now = new Date().toISOString();
     const newScores: { fixtureId: string; homeScore: number; awayScore: number; updatedAt: string }[] = [];
 
-    for (const fdoMatch of finished) {
-      const homeScore = fdoMatch.score.fullTime.home;
-      const awayScore = fdoMatch.score.fullTime.away;
+    for (const fdoMatch of relevant) {
+      // For live matches, use fullTime (FDO populates it in real-time on paid tier)
+      // Fall back to halfTime for paused matches
+      const homeScore =
+        fdoMatch.score.fullTime.home ??
+        (fdoMatch.status === "PAUSED" ? fdoMatch.score.halfTime.home : null);
+      const awayScore =
+        fdoMatch.score.fullTime.away ??
+        (fdoMatch.status === "PAUSED" ? fdoMatch.score.halfTime.away : null);
+
       if (homeScore === null || awayScore === null) continue;
 
       const staticMatch = MATCHES.find(
