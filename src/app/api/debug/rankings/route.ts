@@ -35,6 +35,8 @@ export async function GET(req: NextRequest) {
       home: d!.homeTeam.name,
       away: d!.awayTeam.name,
       has_lineups: d!.lineups !== null,
+      home_startXI_count: d!.lineups?.homeTeam?.startXI?.length ?? 0,
+      home_first3: d!.lineups?.homeTeam?.startXI?.slice(0, 3).map((p) => ({ name: p.name, position: p.position })) ?? [],
       home_gk: d!.lineups?.homeTeam?.startXI?.find((p) => p.position === "Goalkeeper")?.name ?? "NOT FOUND",
       away_gk: d!.lineups?.awayTeam?.startXI?.find((p) => p.position === "Goalkeeper")?.name ?? "NOT FOUND",
     })),
