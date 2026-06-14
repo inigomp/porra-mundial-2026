@@ -128,8 +128,8 @@ async function syncWithFootballDataOrg() {
 
       // GK scoring
       const gkName = participant.goalkeeper;
-      const homeGK = detail.homeTeam.lineup.find((p) => p.position === "Goalkeeper");
-      const awayGK = detail.awayTeam.lineup.find((p) => p.position === "Goalkeeper");
+      const homeGK = (detail.lineups?.homeTeam?.startXI ?? []).find((p) => p.position === "Goalkeeper");
+      const awayGK = (detail.lineups?.awayTeam?.startXI ?? []).find((p) => p.position === "Goalkeeper");
       let gkTeamId: number | null = null;
       if (homeGK && fuzzyNameMatch(homeGK.name, gkName)) gkTeamId = detail.homeTeam.id;
       else if (awayGK && fuzzyNameMatch(awayGK.name, gkName)) gkTeamId = detail.awayTeam.id;

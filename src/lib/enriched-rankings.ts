@@ -110,8 +110,8 @@ export async function getEnrichedRankings(): Promise<EnrichedRankings> {
       if (detail.status !== "FINISHED") continue;
 
       const sides = [
-        { lineup: detail.homeTeam.lineup ?? [], teamId: detail.homeTeam.id },
-        { lineup: detail.awayTeam.lineup ?? [], teamId: detail.awayTeam.id },
+        { lineup: detail.lineups?.homeTeam?.startXI ?? [], teamId: detail.homeTeam.id },
+        { lineup: detail.lineups?.awayTeam?.startXI ?? [], teamId: detail.awayTeam.id },
       ];
 
       for (const { lineup, teamId } of sides) {

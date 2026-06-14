@@ -97,9 +97,20 @@ export interface FdoMatchSummary {
   score: FdoScore;
 }
 
+export interface FdoMatchLineupSide {
+  formation: string | null;
+  startXI: FdoLineupPlayer[];
+  bench: FdoLineupPlayer[];
+}
+
 export interface FdoMatchDetail extends FdoMatchSummary {
-  homeTeam: FdoTeamRef & { lineup: FdoLineupPlayer[]; bench: FdoLineupPlayer[] };
-  awayTeam: FdoTeamRef & { lineup: FdoLineupPlayer[]; bench: FdoLineupPlayer[] };
+  /** homeTeam/awayTeam here only carry id/name — lineups are under `lineups` */
+  homeTeam: FdoTeamRef;
+  awayTeam: FdoTeamRef;
+  lineups: {
+    homeTeam: FdoMatchLineupSide;
+    awayTeam: FdoMatchLineupSide;
+  } | null;
   goals: FdoGoal[];
   bookings: FdoBooking[];
   substitutions: FdoSubstitution[];
@@ -259,10 +270,9 @@ export function analyzeGKEvents(
   gkName: string,
   teamId: number
 ): { type: "played_full" | "substituted" | "red_card" | "not_played"; minute?: number; injury?: boolean } {
-  // Find the GK in the starting lineup for this team
-  const teamLineup = match.homeTeam.id === teamId
-    ? (match.homeTeam.lineup ?? [])
-    : (match.awayTeam.lineup ?? []);
+  // lineups.homeTeam.startXI / lineups.awayTeam.startXI (FDO v4 structure)
+  const side = match.homeTeam.id === teamId ? "homeTeam" : "awayTeam";
+  const teamLineup = match.lineups?.[side]?.startXI ?? [];
 
   const gk = extractGKFromLineup(teamLineup, gkName);
 
