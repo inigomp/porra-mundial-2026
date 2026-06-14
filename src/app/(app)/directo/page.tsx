@@ -343,7 +343,7 @@ export default async function DirectoPage() {
           baseBreakdowns,
           PARTICIPANTS
         );
-        const newTop5 = sim.standings.slice(0, 5).map((e) => ({
+        const newTop5 = sim.standings.slice(0, 8).map((e) => ({
           ...e,
           baseRank:
             baseStandings.find((b) => b.participantId === e.participantId)
@@ -648,7 +648,7 @@ export default async function DirectoPage() {
                     {/* Divider */}
                     <div className="border-t border-[#2a2d3a] mb-3" />
 
-                    {/* New top 5 */}
+                    {/* New top 8 */}
                     <div className="space-y-2">
                       {s.newTop5.map((e) => {
                         const rankDelta = e.baseRank - e.projectedRank;
@@ -667,7 +667,7 @@ export default async function DirectoPage() {
                                   : "text-[#9ca3af]"
                               }`}
                             >
-                              {e.participantName.split(" ")[0]}
+                              {e.participantName.split(" ").slice(0, 2).join(" ")}
                             </span>
                             {e.pointsDelta > 0 && (
                               <span className="text-[#00c853] text-xs font-bold shrink-0">
