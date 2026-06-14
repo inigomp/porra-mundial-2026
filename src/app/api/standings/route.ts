@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { buildLeaderboard, calculateParticipantScore } from "@/lib/scoring-engine";
-import { PARTICIPANTS, MATCHES } from "@/lib/participants";
+import { PARTICIPANTS } from "@/lib/participants";
 import { getStandingsCache } from "@/lib/standings-cache";
-import { applyOverrides } from "@/lib/score-overrides";
+import { getMatchesWithLiveScores } from "@/lib/live-scores";
 import type { Fixture, KillerGoals } from "@/lib/types";
 
 /**
@@ -11,7 +11,7 @@ import type { Fixture, KillerGoals } from "@/lib/types";
  * Priority order:
  *   1. In-process cache (populated by /api/cron/sync-scores with FDO data)
  *      → includes GK and killer scoring
- *   2. Static MATCHES data with admin overrides applied
+ *   2. FDO via fetch cache (revalidate: 60s, shared across all Lambda instances)
  *      → prediction points only (GK/killer = 0 until cron runs)
  */
 export async function GET() {
@@ -30,10 +30,10 @@ export async function GET() {
     });
   }
 
-  // 2. Fallback: static data with overrides, predictions only
-  const matches = applyOverrides(MATCHES);
+  // 2. Fallback: FDO via fetch cache (admin overrides + FDO live/recent + static)
+  const liveMatches = await getMatchesWithLiveScores();
 
-  const fixtures: Fixture[] = matches.map((m) => ({
+  const fixtures: Fixture[] = liveMatches.map((m) => ({
     id: m.id,
     homeTeam: m.homeTeam,
     awayTeam: m.awayTeam,
@@ -67,7 +67,7 @@ export async function GET() {
     meta: {
       totalParticipants: PARTICIPANTS.length,
       playedMatches: fixtures.filter((f) => f.status === "FT").length,
-      dataSource: "static (no FDO cache yet — run /api/cron/sync-scores to enrich)",
+      dataSource: "fdo-live (fetch cache, revalidate 60s)",
       lastUpdated: new Date().toISOString(),
     },
   });
