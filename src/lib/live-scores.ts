@@ -11,27 +11,15 @@
  */
 import { MATCHES } from "./participants";
 import { applyOverrides } from "./score-overrides";
-import { getLiveWCMatches, getRecentWCMatches } from "./football-data-org";
+import { getLiveWCMatches, getRecentWCMatches, normStr } from "./football-data-org";
 import type { FdoMatchSummary } from "./football-data-org";
+import type { MatchWithScore } from "./types";
 
-export type MatchWithScore = {
-  id: string;
-  homeTeam: string;
-  awayTeam: string;
-  homeScore: number | null;
-  awayScore: number | null;
-};
+export type { MatchWithScore };
 
-function normalize(name: string): string {
-  return name.toLowerCase()
-    .replace(/á/g, "a").replace(/é/g, "e").replace(/í/g, "i")
-    .replace(/ó/g, "o").replace(/ú/g, "u").replace(/ñ/g, "n")
-    .replace(/ü/g, "u");
-}
-
-function teamsMatch(fdoName: string, staticName: string): boolean {
-  const fdo = normalize(fdoName);
-  const sta = normalize(staticName);
+export function teamsMatch(fdoName: string, staticName: string): boolean {
+  const fdo = normStr(fdoName);
+  const sta = normStr(staticName);
   if (fdo === sta || fdo.includes(sta) || sta.includes(fdo)) return true;
   const aliases: Record<string, string> = {
     "brazil": "brasil",

@@ -114,7 +114,7 @@ export interface FdoMatchDetail extends FdoMatchSummary {
 // ─────────────────────────────────────────────
 
 /** Lowercase + strip common accents for fuzzy matching */
-function normStr(s: string): string {
+export function normStr(s: string): string {
   return s.toLowerCase()
     .replace(/[áàâä]/g, "a").replace(/[éèêë]/g, "e")
     .replace(/[íìîï]/g, "i").replace(/[óòôö]/g, "o")
@@ -125,9 +125,20 @@ function normStr(s: string): string {
  * Extract matchable surname key from participant player field.
  * "Mbappé (FRA)" → "mbappe"   "Oyarzabal" → "oyarzabal"
  */
-function playerKey(name: string): string {
+export function playerKey(name: string): string {
   return normStr(name.replace(/\s*\([^)]+\)\s*$/, "").trim());
 }
+
+/**
+ * GK registration alias table — handles mismatches between FDO API name and
+ * porra internal name. Key: normStr(porraName), Value: alternative normStr API names.
+ * Example: "Bono" registered as "Bounou" in FDO.
+ */
+export const GK_ALIASES: Record<string, string[]> = {
+  "bono": ["bounou"],
+  "courtois": ["thibaut courtois"],
+  "oblak": ["jan oblak"],
+};
 
 /** Get all live + today's World Cup matches */
 export async function getLiveWCMatches(): Promise<FdoMatchSummary[]> {
@@ -210,27 +221,26 @@ export async function getMatchDetail(matchId: number): Promise<FdoMatchDetail | 
  * Returns null if not found.
  */
 export function extractGKFromLineup(
-  lineup: FdoLineupPlayer[],
+  lineup: FdoLineupPlayer[] | null | undefined,
   gkName: string
 ): FdoLineupPlayer | null {
-  // First try by position
-  const gkByPosition = lineup.find(
+  const porraKey = playerKey(gkName);
+  const aliases = GK_ALIASES[porraKey] ?? [];
+
+  // Find goalkeeper by position first
+  const gkByPosition = (lineup ?? []).find(
     (p) => p.position === "Goalkeeper"
   );
 
   if (gkByPosition) {
-    // Verify it's the participant's chosen GK (fuzzy name match)
-    const nameLower = gkName.toLowerCase();
-    const apiNameLower = gkByPosition.name.toLowerCase();
-    const firstWord = nameLower.split(" ")[0];
-    if (
-      apiNameLower.includes(firstWord) ||
-      nameLower.includes(apiNameLower.split(" ")[0])
-    ) {
+    const apiKey = normStr(gkByPosition.name);
+    const matches =
+      apiKey.includes(porraKey) || porraKey.includes(apiKey) ||
+      aliases.some((a) => apiKey.includes(a) || a.includes(apiKey));
+    // Return regardless of match — we need to know who played regardless
+    if (matches || (lineup ?? []).filter((p) => p.position === "Goalkeeper").length === 1) {
       return gkByPosition;
     }
-    // Different GK started — still return it so we know who played
-    return gkByPosition;
   }
   return null;
 }
@@ -251,8 +261,8 @@ export function analyzeGKEvents(
 ): { type: "played_full" | "substituted" | "red_card" | "not_played"; minute?: number; injury?: boolean } {
   // Find the GK in the starting lineup for this team
   const teamLineup = match.homeTeam.id === teamId
-    ? match.homeTeam.lineup
-    : match.awayTeam.lineup;
+    ? (match.homeTeam.lineup ?? [])
+    : (match.awayTeam.lineup ?? []);
 
   const gk = extractGKFromLineup(teamLineup, gkName);
 
@@ -261,15 +271,21 @@ export function analyzeGKEvents(
     return { type: "not_played" };
   }
 
-  const nameLower = gk.name.toLowerCase();
+  const gkKey = playerKey(gkName);
+  const aliases = GK_ALIASES[gkKey] ?? [];
+
+  function gkMatches(playerName: string): boolean {
+    const key = normStr(playerName);
+    return key.includes(gkKey) || gkKey.includes(key) ||
+      aliases.some((a) => key.includes(a) || a.includes(key));
+  }
 
   // Check for red card
-  const redCard = match.bookings.find(
+  const redCard = (match.bookings ?? []).find(
     (b) =>
       b.team.id === teamId &&
       (b.card === "RED_CARD" || b.card === "YELLOW_RED_CARD") &&
-      b.player.name.toLowerCase().includes(nameLower.split(" ")[0]) ||
-      nameLower.includes(b.player.name.toLowerCase().split(" ")[0])
+      gkMatches(b.player.name)
   );
 
   if (redCard) {
@@ -277,11 +293,10 @@ export function analyzeGKEvents(
   }
 
   // Check for substitution (GK coming off)
-  const sub = match.substitutions.find(
+  const sub = (match.substitutions ?? []).find(
     (s) =>
       s.team.id === teamId &&
-      (s.playerOut.name.toLowerCase().includes(nameLower.split(" ")[0]) ||
-       nameLower.includes(s.playerOut.name.toLowerCase().split(" ")[0]))
+      gkMatches(s.playerOut.name)
   );
 
   if (sub) {
@@ -297,7 +312,7 @@ export function analyzeGKEvents(
  * Includes: REGULAR, EXTRA_TIME, OWN goals.
  */
 export function goalsAgainstTeam(match: FdoMatchDetail, teamId: number): number {
-  return match.goals.filter(
+  return (match.goals ?? []).filter(
     (g) =>
       g.type !== "PENALTY" &&
       g.team.id !== teamId  // goals scored by the OTHER team against this team
@@ -314,7 +329,7 @@ export function goalsByPlayer(
   playerName: string
 ): number {
   const key = playerKey(playerName);
-  return match.goals.filter((g) => {
+  return (match.goals ?? []).filter((g) => {
     if (g.type === "PENALTY" || !g.scorer) return false;
     const scorerWords = normStr(g.scorer.name).split(/\s+/);
     return scorerWords.some(
@@ -331,7 +346,7 @@ export function goalsByPlayer(
 export function mapFdoStatus(
   status: string,
   score: FdoScore
-): "NS" | "1H" | "HT" | "2H" | "ET" | "FT" | "AET" | "PEN" | "CANC" {
+): "NS" | "1H" | "HT" | "2H" | "ET" | "FT" | "AET" | "PEN" | "ABD" {
   switch (status) {
     case "FINISHED":
       if (score.duration === "PENALTY_SHOOTOUT") return "PEN";
@@ -341,7 +356,7 @@ export function mapFdoStatus(
     case "PAUSED": return "HT";
     case "CANCELLED":
     case "POSTPONED":
-      return "CANC";
+      return "ABD";
     default:
       return "NS";
   }

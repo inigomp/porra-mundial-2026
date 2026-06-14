@@ -129,3 +129,35 @@ export interface StandingEntry {
   lastFive: ("hit" | "miss" | "partial")[];
   winProbability: number;
 }
+
+// ─────────────────────────────────────────────
+// Enriched rankings types (killer goals + GK pts)
+// ─────────────────────────────────────────────
+
+export interface KillerRankEntry {
+  name: string;
+  goals: number;
+}
+
+export interface GkRankEntry {
+  name: string;
+  pts: number;
+}
+
+export interface EnrichedRankings {
+  killerMundial: KillerRankEntry[];
+  killerSeleccion: KillerRankEntry[];
+  topGoalkeepers: GkRankEntry[];
+}
+
+// ─────────────────────────────────────────────
+// Live scores shared type
+// ─────────────────────────────────────────────
+
+export interface MatchWithScore {
+  id: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: number | null;
+  awayScore: number | null;
+}
