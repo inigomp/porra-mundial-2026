@@ -9,6 +9,7 @@ import {
 } from "@/lib/scoring-engine";
 import type { Fixture } from "@/lib/types";
 import { cookies } from "next/headers";
+import StakesPopover from "@/components/StakesPopover";
 
 // ─── Team code mappings ───────────────────────────────────────────────────────
 
@@ -128,6 +129,14 @@ function getGkNameForCode(code: string): string | null {
   return Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0][0];
 }
 
+/** Sorted list of participant names whose GK is for a given team code */
+function getGkParticipantsForCode(code: string): string[] {
+  return PARTICIPANTS
+    .filter((p) => extractCode(p.goalkeeper) === code)
+    .map((p) => p.name)
+    .sort((a, b) => a.localeCompare(b, "es"));
+}
+
 /** All killerMundial choices for a given team code, grouped by player name */
 function getKillersForCode(code: string): Array<{ name: string; count: number }> {
   const counts = new Map<string, number>();
@@ -138,6 +147,14 @@ function getKillersForCode(code: string): Array<{ name: string; count: number }>
   return Array.from(counts.entries())
     .sort((a, b) => b[1] - a[1])
     .map(([name, count]) => ({ name, count }));
+}
+
+/** Sorted list of participant names whose killerMundial is for a given team code */
+function getKillerParticipantsForCode(code: string): string[] {
+  return PARTICIPANTS
+    .filter((p) => extractCode(p.killerMundial) === code)
+    .map((p) => p.name)
+    .sort((a, b) => a.localeCompare(b, "es"));
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -239,8 +256,12 @@ export default async function DirectoPage() {
     : 0;
   const gkHomeName = homeCode ? getGkNameForCode(homeCode) : null;
   const gkAwayName = awayCode ? getGkNameForCode(awayCode) : null;
+  const gkHomeParticipants = homeCode ? getGkParticipantsForCode(homeCode) : [];
+  const gkAwayParticipants = awayCode ? getGkParticipantsForCode(awayCode) : [];
   const killersHome = homeCode ? getKillersForCode(homeCode) : [];
   const killersAway = awayCode ? getKillersForCode(awayCode) : [];
+  const killerHomeParticipants = homeCode ? getKillerParticipantsForCode(homeCode) : [];
+  const killerAwayParticipants = awayCode ? getKillerParticipantsForCode(awayCode) : [];
 
   // Prediction distribution for the focus match
   const focusPreds = focusId
@@ -496,9 +517,9 @@ export default async function DirectoPage() {
                     <p className="text-white font-bold text-sm truncate">
                       {stripCode(gkHomeName)}
                     </p>
-                    <p className="text-[#00c853] font-black text-2xl mt-1">
-                      {gkHomeCount}
-                    </p>
+                    <div className="mt-1">
+                      <StakesPopover count={gkHomeCount} names={gkHomeParticipants} label={stripCode(gkHomeName)} />
+                    </div>
                     <p className="text-[#6b7280] text-xs">
                       participante{gkHomeCount !== 1 ? "s" : ""}
                     </p>
@@ -515,9 +536,9 @@ export default async function DirectoPage() {
                     <p className="text-white font-bold text-sm truncate">
                       {stripCode(gkAwayName)}
                     </p>
-                    <p className="text-[#00c853] font-black text-2xl mt-1">
-                      {gkAwayCount}
-                    </p>
+                    <div className="mt-1">
+                      <StakesPopover count={gkAwayCount} names={gkAwayParticipants} label={stripCode(gkAwayName)} />
+                    </div>
                     <p className="text-[#6b7280] text-xs">
                       participante{gkAwayCount !== 1 ? "s" : ""}
                     </p>
@@ -536,19 +557,23 @@ export default async function DirectoPage() {
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {[...killersHome, ...killersAway].map((k) => (
-                    <div
-                      key={k.name}
-                      className="bg-[#2a2d3a] rounded-lg px-3 py-1.5 flex items-center gap-2"
-                    >
-                      <span className="text-white text-sm font-medium">
-                        {stripCode(k.name)}
-                      </span>
-                      <span className="text-[#00c853] font-bold text-sm">
-                        {k.count}
-                      </span>
-                    </div>
-                  ))}
+                  {[...killersHome, ...killersAway].map((k) => {
+                    const participants = PARTICIPANTS
+                      .filter((p) => p.killerMundial === k.name)
+                      .map((p) => p.name)
+                      .sort((a, b) => a.localeCompare(b, "es"));
+                    return (
+                      <div
+                        key={k.name}
+                        className="bg-[#2a2d3a] rounded-lg px-3 py-1.5 flex items-center gap-2"
+                      >
+                        <span className="text-white text-sm font-medium">
+                          {stripCode(k.name)}
+                        </span>
+                        <StakesPopover count={k.count} names={participants} label={stripCode(k.name)} />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
