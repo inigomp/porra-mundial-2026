@@ -286,8 +286,10 @@ export default async function DirectoPage() {
   for (const fdoMatch of stakesMatches) {
     const mHomeCode = getCodeFromFdo(fdoMatch.homeTeam.name);
     const mAwayCode = getCodeFromFdo(fdoMatch.awayTeam.name);
-    for (const code of [mHomeCode, mAwayCode]) {
-      if (!code) continue;
+    const matchCodes = [mHomeCode, mAwayCode].filter(Boolean) as string[];
+
+    // killerMundial picks for the teams in this match
+    for (const code of matchCodes) {
       for (const k of getKillersForCode(code)) {
         if (aggregatedKillers.some((x) => x.name === k.name)) continue;
         const participants = PARTICIPANTS.filter((p) => p.killerMundial === k.name).map((p) => p.name).sort((a, b) => a.localeCompare(b, "es"));
@@ -299,6 +301,20 @@ export default async function DirectoPage() {
         if (cnt > 0) {
           aggregatedGkCards.push({ gkName, count: cnt, participants: getGkParticipantsForCode(code) });
         }
+      }
+    }
+
+    // killerSeleccion picks: always Spanish players (no country code).
+    // Show them whenever Spain (ESP) is one of the teams in the match.
+    const spainPlaying = matchCodes.includes("ESP");
+    if (spainPlaying) {
+      const selCounts = new Map<string, number>();
+      for (const p of PARTICIPANTS) selCounts.set(p.killerSeleccion, (selCounts.get(p.killerSeleccion) ?? 0) + 1);
+      for (const [selName, selCount] of selCounts) {
+        // Avoid duplicating if someone also has this name as killerMundial (ESP)
+        if (aggregatedKillers.some((x) => x.name === selName || x.name.startsWith(selName + " ("))) continue;
+        const participants = PARTICIPANTS.filter((p) => p.killerSeleccion === selName).map((p) => p.name).sort((a, b) => a.localeCompare(b, "es"));
+        aggregatedKillers.push({ name: `${selName} ⭐`, count: selCount, participants });
       }
     }
   }
@@ -576,19 +592,19 @@ export default async function DirectoPage() {
                 </div>
               )}
 
-              {/* Killer mundial choices */}
+              {/* Killer mundial + selección choices */}
               {aggregatedKillers.length > 0 && (
                 <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-4 mb-3">
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-base">⚡</span>
                     <span className="text-[#9ca3af] text-xs font-semibold uppercase tracking-wide">
-                      Killers del mundial en juego
+                      Killers en juego
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {aggregatedKillers.map((k) => (
                       <div key={k.name} className="bg-[#2a2d3a] rounded-lg px-3 py-1.5 flex items-center gap-2">
-                        <span className="text-white text-sm font-medium">{stripCode(k.name)}</span>
+                        <span className="text-white text-sm font-medium">{k.name.endsWith(" ⭐") ? k.name.slice(0, -2) + " 🇪🇸" : stripCode(k.name)}</span>
                         <StakesPopover count={k.count} names={k.participants} label={stripCode(k.name)} />
                       </div>
                     ))}
