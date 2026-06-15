@@ -112,6 +112,7 @@ export interface ParticipantScoreBreakdown {
   totalFromPredictions: number;
   totalFromGoalkeeper: number;
   totalFromKillers: number;
+  totalFromPlayoff: number;
   grandTotal: number;
   /** Points from group stage only (for the special mid-tournament prize) */
   groupStageTotal: number;
@@ -160,4 +161,41 @@ export interface MatchWithScore {
   awayTeam: string;
   homeScore: number | null;
   awayScore: number | null;
+}
+
+// ─────────────────────────────────────────────
+// Playoff prediction scoring
+// ─────────────────────────────────────────────
+
+/**
+ * Actual results for each playoff slot.
+ * Keys match the slot keys in PLAYOFF_SLOTS:
+ *   "Xº grupo Y"        → team that finished in that position (group stage)
+ *   "OCTAVOFINALISTA N"  → team that won dieciseisavos match N
+ *   "CUARTOFINALISTA N"  → team that won octavos match N
+ *   "SEMIFINALISTA N"    → team that won cuartos match N
+ *   "FINALISTA 1|2"      → both finalists
+ *   "TERCER PUESTO"      → 3rd place team
+ *   "CAMPEÖN"            → champion
+ *
+ * Leave a slot undefined/absent until the result is known.
+ */
+export type PlayoffActuals = Record<string, string>;
+
+/** Score for a single playoff slot prediction */
+export interface PlayoffSlotScore {
+  slot: string;
+  predictedTeam: string;
+  actualTeam: string | null;
+  points: number;
+  /** true if the team qualified (2 pts base) */
+  qualified: boolean;
+  /** true if the position bonus was earned (+1, only for 1st/2nd place slots) */
+  positionBonus: boolean;
+}
+
+/** All playoff scores for a participant */
+export interface PlayoffScore {
+  slots: PlayoffSlotScore[];
+  totalPoints: number;
 }

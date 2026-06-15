@@ -23,7 +23,8 @@ import { MATCHES, PARTICIPANTS } from "@/lib/participants";
 import { teamsMatch } from "@/lib/live-scores";
 import { setStandingsCache } from "@/lib/standings-cache";
 import { calculateParticipantScore, buildLeaderboard, type FixtureGoalkeeperData } from "@/lib/scoring-engine";
-import { getKillerOverride, getGkOverride } from "@/lib/score-overrides";
+import { getKillerOverride, getGkOverride, getPlayoffActuals } from "@/lib/score-overrides";
+import { PLAYOFF_SLOTS } from "@/lib/playoff-slots";
 import type { Fixture, GoalkeeperMatchEvent, KillerGoals } from "@/lib/types";
 
 /**
@@ -175,11 +176,14 @@ async function syncWithFootballDataOrg() {
       }
     }
 
+    const playoffActuals = getPlayoffActuals();
     const breakdown = calculateParticipantScore({
       participant,
       fixtures,
       goalkeeperData,
       killerGoals: { mundialGoals, seleccionGoals },
+      playoffPredictions: PLAYOFF_SLOTS[participant.id],
+      playoffActuals,
     });
 
     // Admin GK override: replace computed GK points with the manually set value.
@@ -269,8 +273,16 @@ async function syncWithFreeApi() {
   const fixtures = Array.from(fixtureMap.values());
   const killerGoals: KillerGoals = { mundialGoals: 0, seleccionGoals: 0 };
 
+  const playoffActuals = getPlayoffActuals();
   const breakdowns = PARTICIPANTS.map((participant) =>
-    calculateParticipantScore({ participant, fixtures, goalkeeperData: [], killerGoals })
+    calculateParticipantScore({
+      participant,
+      fixtures,
+      goalkeeperData: [],
+      killerGoals,
+      playoffPredictions: PLAYOFF_SLOTS[participant.id],
+      playoffActuals,
+    })
   );
   const standings = buildLeaderboard(breakdowns, fixtures);
 

@@ -271,10 +271,14 @@ export interface ScoringInput {
   goalkeeperData: FixtureGoalkeeperData[];
   /** Goals by their killers (accumulated across all finished matches) */
   killerGoals: KillerGoals;
+  /** Participant's playoff slot predictions (from PLAYOFF_SLOTS) */
+  playoffPredictions?: Record<string, string>;
+  /** Actual results for each playoff slot (admin-entered as tournament progresses) */
+  playoffActuals?: import('./types').PlayoffActuals;
 }
 
 export function calculateParticipantScore(input: ScoringInput): ParticipantScoreBreakdown {
-  const { participant, fixtures, goalkeeperData, killerGoals } = input;
+  const { participant, fixtures, goalkeeperData, killerGoals, playoffPredictions, playoffActuals } = input;
   const fixtureMap = new Map(fixtures.map((f) => [f.id, f]));
 
   // Match predictions
@@ -320,6 +324,11 @@ export function calculateParticipantScore(input: ScoringInput): ParticipantScore
   const totalFromKillers =
     killerScores.mundial.totalPoints + killerScores.seleccion.totalPoints;
 
+  const totalFromPlayoff =
+    playoffPredictions && playoffActuals
+      ? scorePlayoffSlots(playoffPredictions, playoffActuals).totalPoints
+      : 0;
+
   return {
     participantId: participant.id,
     participantName: participant.name,
@@ -330,7 +339,8 @@ export function calculateParticipantScore(input: ScoringInput): ParticipantScore
     totalFromPredictions,
     totalFromGoalkeeper,
     totalFromKillers,
-    grandTotal: totalFromPredictions + totalFromGoalkeeper + totalFromKillers,
+    totalFromPlayoff,
+    grandTotal: totalFromPredictions + totalFromGoalkeeper + totalFromKillers + totalFromPlayoff,
     groupStageTotal,
   };
 }
@@ -459,3 +469,121 @@ export function simulateLiveScenario(
 
   return { scenario, standings: projected };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7. Playoff slot scoring
+// ─────────────────────────────────────────────────────────────────────────────
+
+import type { PlayoffActuals, PlayoffScore, PlayoffSlotScore } from "./types";
+
+/**
+ * Points awarded per slot category.
+ *
+ * dieciseisavos: 2 pts if team reached r16, +1 bonus if exact 1st/2nd position.
+ * octavos / cuartos / semis: 4 pts if team reached that round.
+ * finalistas: 6 pts (independientemente de la posición).
+ * tercer puesto: 4 pts.
+ * campeón: 8 pts.
+ */
+const PLAYOFF_PTS = {
+  R16_BASE: 2,
+  R16_POSITION_BONUS: 1,
+  R8_ADVANCE: 4,
+  QF_ADVANCE: 4,
+  SF_ADVANCE: 4,
+  FINALIST: 6,
+  THIRD: 4,
+  CHAMPION: 8,
+} as const;
+
+/** All slot keys that represent a team qualifying for the round of 16. */
+function isR16SlotKey(key: string): boolean {
+  return /^\d\u00ba\s+grupo\s+/i.test(key) || // "Xº grupo Y"
+         /^3\u00ba\s+grupos?\s+/i.test(key);   // "3º grupos X/Y/Z"
+}
+
+/** Is the slot a 1st or 2nd place group slot (position bonus eligible)? */
+function isPositionBonusEligible(key: string): boolean {
+  return /^[12]\u00ba\s+grupo\s+/i.test(key);
+}
+
+/**
+ * Score a participant's playoff slot predictions against actual results.
+ *
+ * @param predictions - PLAYOFF_SLOTS[participantId]
+ * @param actuals     - actual team that filled each slot (undefined keys = not yet known)
+ */
+export function scorePlayoffSlots(
+  predictions: Record<string, string>,
+  actuals: PlayoffActuals
+): PlayoffScore {
+  // Build the set of all teams that actually qualified to r16 (from any slot).
+  const r16QualifiedTeams = new Set<string>();
+  for (const [key, team] of Object.entries(actuals)) {
+    if (isR16SlotKey(key) && team) r16QualifiedTeams.add(team);
+  }
+
+  // Build the set of finalists.
+  const finalists = new Set<string>();
+  if (actuals["FINALISTA 1"]) finalists.add(actuals["FINALISTA 1"]);
+  if (actuals["FINALISTA 2"]) finalists.add(actuals["FINALISTA 2"]);
+
+  const slots: PlayoffSlotScore[] = [];
+  let totalPoints = 0;
+
+  for (const [slot, predictedTeam] of Object.entries(predictions)) {
+    const actual = actuals[slot] ?? null;
+    let points = 0;
+    let qualified = false;
+    let positionBonus = false;
+
+    if (isR16SlotKey(slot)) {
+      // 2 pts if team qualified to r16 (in any slot); +1 if exact position.
+      if (r16QualifiedTeams.has(predictedTeam)) {
+        qualified = true;
+        points += PLAYOFF_PTS.R16_BASE;
+        if (isPositionBonusEligible(slot) && actual === predictedTeam) {
+          positionBonus = true;
+          points += PLAYOFF_PTS.R16_POSITION_BONUS;
+        }
+      }
+    } else if (slot.startsWith("OCTAVOFINALISTA")) {
+      if (actual && actual === predictedTeam) {
+        qualified = true;
+        points = PLAYOFF_PTS.R8_ADVANCE;
+      }
+    } else if (slot.startsWith("CUARTOFINALISTA")) {
+      if (actual && actual === predictedTeam) {
+        qualified = true;
+        points = PLAYOFF_PTS.QF_ADVANCE;
+      }
+    } else if (slot.startsWith("SEMIFINALISTA")) {
+      if (actual && actual === predictedTeam) {
+        qualified = true;
+        points = PLAYOFF_PTS.SF_ADVANCE;
+      }
+    } else if (slot.startsWith("FINALISTA")) {
+      // 6 pts if the team reached the final regardless of which finalist slot.
+      if (finalists.size > 0 && finalists.has(predictedTeam)) {
+        qualified = true;
+        points = PLAYOFF_PTS.FINALIST;
+      }
+    } else if (slot === "TERCER PUESTO") {
+      if (actual && actual === predictedTeam) {
+        qualified = true;
+        points = PLAYOFF_PTS.THIRD;
+      }
+    } else if (slot === "CAMPEÖN") {
+      if (actual && actual === predictedTeam) {
+        qualified = true;
+        points = PLAYOFF_PTS.CHAMPION;
+      }
+    }
+
+    slots.push({ slot, predictedTeam, actualTeam: actual, points, qualified, positionBonus });
+    totalPoints += points;
+  }
+
+  return { slots, totalPoints };
+}
+

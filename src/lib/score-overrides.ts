@@ -116,3 +116,26 @@ export function getGkOverride(gkName: string): number | null {
   const o = _gkOverrides.get(gkName);
   return o != null ? o.points : null;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Playoff actuals — admin enters actual results as tournament progresses
+// ─────────────────────────────────────────────────────────────────────────────
+// Keys are playoff slot keys, e.g. "2º grupo A", "OCTAVOFINALISTA 1", etc.
+// Values are the team name (must match spelling in playoff-slots.ts).
+
+import type { PlayoffActuals } from "./types";
+
+const _playoffActuals: PlayoffActuals = {};
+
+export function setPlayoffActual(slot: string, team: string): void {
+  _playoffActuals[slot] = team;
+}
+
+export function deletePlayoffActual(slot: string): void {
+  delete _playoffActuals[slot];
+}
+
+/** Returns a shallow copy of all current playoff actuals. */
+export function getPlayoffActuals(): PlayoffActuals {
+  return { ..._playoffActuals };
+}
