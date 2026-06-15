@@ -58,6 +58,22 @@ export function teamsMatch(fdoName: string, staticName: string): boolean {
     "senegal": "senegal",
     "colombia": "colombia",
     "uruguay": "uruguay",
+    "belgium": "belgica",
+    "egypt": "egipto",
+    "cape verde": "cabo verde",
+    "new zealand": "nueva zelanda",
+    "iran": "iran",
+    "saudi arabia": "arabia saudita",
+    "iraq": "irak",
+    "norway": "noruega",
+    "algeria": "argelia",
+    "austria": "austria",
+    "jordan": "jordania",
+    "congo dr": "rd congo",
+    "dr congo": "rd congo",
+    "uzbekistan": "uzbekistan",
+    "ghana": "ghana",
+    "panama": "panama",
   };
   const fdoAlias = aliases[fdo] ?? fdo;
   return fdoAlias === sta || sta.includes(fdoAlias) || fdoAlias.includes(sta);
