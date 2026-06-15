@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { PARTICIPANTS } from "@/lib/participants";
 import { getMatchesWithLiveScores } from "@/lib/live-scores";
-import { getMatchResult } from "@/lib/scoring-engine";
-import { getKillerGoalsBatch, playerKey, normStr } from "@/lib/football-data-org";
+import { getMatchResult, scorePlayoffSlots } from "@/lib/scoring-engine";
+import { getKillerGoalsBatch, getWCStandings, getAllFinishedWCMatches, playerKey, normStr } from "@/lib/football-data-org";
 import { getGoalkeeperPtsMap } from "@/lib/enriched-rankings";
 import { getStandingsCache } from "@/lib/standings-cache";
+import { buildPlayoffActuals } from "@/lib/playoff-actuals";
+import { PLAYOFF_SLOTS } from "@/lib/playoff-slots";
+import type { PlayoffSlotScore } from "@/lib/types";
 
 function getMatchPoints(
   prediction: { homeGoals: number; awayGoals: number } | undefined,
@@ -30,6 +33,52 @@ function getMatchPoints(
   return { pts: 0, label: "Fallo", color: "text-red-400" };
 }
 
+// ─── Playoff helpers ──────────────────────────────────────────────────────────
+
+interface PlayoffRound {
+  label: string;
+  slots: PlayoffSlotScore[];
+}
+
+function groupSlotsByRound(slots: PlayoffSlotScore[]): PlayoffRound[] {
+  const rounds: PlayoffRound[] = [
+    { label: "Clasificados a dieciseisavos", slots: [] },
+    { label: "Dieciseisavos de final", slots: [] },
+    { label: "Octavos de final", slots: [] },
+    { label: "Cuartos de final", slots: [] },
+    { label: "Semifinales", slots: [] },
+    { label: "Final", slots: [] },
+  ];
+
+  for (const slot of slots) {
+    if (/^[123]º\s+grupo\s+/i.test(slot.slot)) {
+      rounds[0].slots.push(slot);
+    } else if (slot.slot.startsWith("OCTAVOFINALISTA")) {
+      rounds[1].slots.push(slot);
+    } else if (slot.slot.startsWith("CUARTOFINALISTA")) {
+      rounds[2].slots.push(slot);
+    } else if (slot.slot.startsWith("SEMIFINALISTA")) {
+      rounds[3].slots.push(slot);
+    } else if (slot.slot.startsWith("FINALISTA") || slot.slot === "TERCER PUESTO") {
+      rounds[4].slots.push(slot);
+    } else if (slot.slot === "CAMPEÖN") {
+      rounds[5].slots.push(slot);
+    }
+  }
+
+  return rounds.filter((r) => r.slots.length > 0);
+}
+
+function slotLabel(key: string): string {
+  return key
+    .replace("OCTAVOFINALISTA", "R32 ganador")
+    .replace("CUARTOFINALISTA", "R16 ganador")
+    .replace("SEMIFINALISTA", "QF ganador")
+    .replace("FINALISTA", "Finalista")
+    .replace("TERCER PUESTO", "3er puesto")
+    .replace("CAMPEÖN", "Campeón");
+}
+
 export default async function ParticipantPrediccionesPage({
   params,
 }: {
@@ -48,15 +97,22 @@ export default async function ParticipantPrediccionesPage({
 
   const allMatches = await getMatchesWithLiveScores();
 
-  // Fetch killer goals and GK pts map in parallel
-  const [killerGoalsMap, gkPtsFromMatches] = await Promise.all([
+  // Fetch killer goals, GK pts, and playoff actuals in parallel
+  const [killerGoalsMap, gkPtsFromMatches, fdoStandings, allFinishedFdo] = await Promise.all([
     getKillerGoalsBatch([participant.killerMundial, participant.killerSeleccion]),
     getGoalkeeperPtsMap(),
+    getWCStandings(),
+    getAllFinishedWCMatches(),
   ]);
   const mundialGoals = killerGoalsMap.get(participant.killerMundial) ?? 0;
   const seleccionGoals = killerGoalsMap.get(participant.killerSeleccion) ?? 0;
   const mundialPts = mundialGoals * 2;
   const seleccionPts = seleccionGoals * 1;
+
+  const playoffPredictions = PLAYOFF_SLOTS[participant.id];
+  const playoffActuals = buildPlayoffActuals(fdoStandings, allFinishedFdo, {});
+  const playoffScore = playoffPredictions ? scorePlayoffSlots(playoffPredictions, playoffActuals) : null;
+  const playoffPts = playoffScore?.totalPoints ?? 0;
 
   // GK points: cron cache (accurate, has lineup data) → match-list fallback (CDN-cached) → null (team hasn't played)
   const cached = getStandingsCache();
@@ -89,7 +145,7 @@ export default async function ParticipantPrediccionesPage({
     }
   });
 
-  const totalPts = matchPts + mundialPts + seleccionPts + (gkPts ?? 0);
+  const totalPts = matchPts + mundialPts + seleccionPts + (gkPts ?? 0) + playoffPts;
   return (
     <main className="md:ml-56 mt-14 flex-1 p-4 md:p-6 space-y-6">
       {/* Header */}
@@ -117,6 +173,12 @@ export default async function ParticipantPrediccionesPage({
             <p className="text-white font-bold text-xl">{played.length}/{matches.length}</p>
             <p className="text-[#6b7280] text-xs mt-0.5">jugados</p>
           </div>
+          {playoffPts > 0 && (
+            <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl px-4 py-3 text-center">
+              <p className="text-[#ffd700] font-bold text-xl">{playoffPts}</p>
+              <p className="text-[#6b7280] text-xs mt-0.5">playoff</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -240,6 +302,74 @@ export default async function ParticipantPrediccionesPage({
                 +{pending.length - 20} partidos más pendientes
               </p>
             )}
+          </div>
+        </section>
+      )}
+
+      {/* ─── Playoff / Bracket ──────────────────────────────────────────────── */}
+      {playoffScore && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-[#9ca3af] text-xs font-semibold uppercase tracking-widest">
+              Bracket eliminatorio
+            </h2>
+            <span className="text-[#ffd700] font-bold text-sm tabular-nums">
+              {playoffPts} pts
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {groupSlotsByRound(playoffScore.slots).map((round) => {
+              const roundPts = round.slots.reduce((s, sl) => s + sl.points, 0);
+              const resolved = round.slots.filter((sl) => sl.actualTeam !== null);
+              const hits = round.slots.filter((sl) => sl.points > 0);
+
+              return (
+                <div
+                  key={round.label}
+                  className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-4"
+                >
+                  {/* Round header */}
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-white text-sm font-semibold">{round.label}</p>
+                    <div className="flex items-center gap-3 text-xs text-[#6b7280]">
+                      <span>{resolved.length}/{round.slots.length} conocidos</span>
+                      <span className={`font-bold tabular-nums ${roundPts > 0 ? "text-[#00c853]" : "text-[#4b5563]"}`}>
+                        {roundPts > 0 ? `+${roundPts}` : roundPts} pts
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Slot list — only resolved slots shown in detail */}
+                  {resolved.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {resolved.map((sl) => (
+                        <div
+                          key={sl.slot}
+                          className="flex items-center justify-between text-xs gap-2"
+                        >
+                          <span className="text-[#6b7280] w-28 flex-shrink-0 truncate">
+                            {slotLabel(sl.slot)}
+                          </span>
+                          <span className="text-white flex-1 truncate">{sl.predictedTeam}</span>
+                          <span className={`flex-shrink-0 ${sl.actualTeam === sl.predictedTeam ? "text-[#00c853]" : sl.points > 0 ? "text-yellow-400" : "text-[#4b5563]"}`}>
+                            {sl.actualTeam}
+                          </span>
+                          <span className={`w-12 text-right font-bold tabular-nums flex-shrink-0 ${sl.points > 0 ? "text-[#ffd700]" : "text-[#4b5563]"}`}>
+                            {sl.points > 0 ? `+${sl.points}` : "—"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[#4b5563] text-xs">
+                      Sin resultados conocidos aún
+                      {hits.length > 0 ? ` · ${hits.length} aciertos anticipados` : ""}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </section>
       )}

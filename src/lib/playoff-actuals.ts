@@ -260,18 +260,9 @@ export function buildPlayoffActuals(
         break;
       }
     }
-
-    if (!matched) {
-      // Both slots unresolved: one of these is a 3rd-place qualifier playing
-      // against a 1st/2nd-place team we DO know. Try to match by one team.
-      for (const entry of BRACKET) {
-        const team1 = actuals[entry.slot1];
-        const team2 = actuals[entry.slot2];
-        if (team1 || team2) continue; // already partially resolved above
-
-        // Both unresolved: skip for now — can't determine without more data
-      }
-    }
+    // If matched === false after all entries: the FDO match uses a team name not
+    // yet in actuals and no partial bracket entry matches. Skip — the slot will
+    // remain unresolved until standings data provides the group positions.
   }
 
   // ── 3. Admin overrides take priority ─────────────────────────────────────
