@@ -12,12 +12,15 @@ import {
   getMatchDetail,
   analyzeGKEvents,
   goalsAgainstTeam,
-  goalsByPlayer,
+  getWCTopScorers,
+  playerKey,
+  normStr as fdoNormStr,
   mapFdoStatus,
   isAvailable as fdoAvailable,
   type FdoMatchSummary,
 } from "@/lib/football-data-org";
 import { MATCHES, PARTICIPANTS } from "@/lib/participants";
+import { teamsMatch } from "@/lib/live-scores";
 import { setStandingsCache } from "@/lib/standings-cache";
 import { calculateParticipantScore, buildLeaderboard, type FixtureGoalkeeperData } from "@/lib/scoring-engine";
 import type { Fixture, GoalkeeperMatchEvent, KillerGoals } from "@/lib/types";
@@ -56,12 +59,14 @@ export async function GET(request: NextRequest) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function syncWithFootballDataOrg() {
-  const [liveMatches, recentMatches] = await Promise.all([
+  const [liveMatches, recentMatches, allScorers] = await Promise.all([
     getLiveWCMatches(),
     getRecentWCMatches(2),
+    getWCTopScorers(100),
   ]);
 
   const liveIds = new Set(liveMatches.map((m) => m.id));
+  // allFdoMatches: live + recent (for score/status) — used for fixtureMap
   const allFdoMatches: FdoMatchSummary[] = [
     ...liveMatches,
     ...recentMatches.filter((m) => !liveIds.has(m.id)),
@@ -109,11 +114,28 @@ async function syncWithFootballDataOrg() {
 
   const fixtures = Array.from(fixtureMap.values());
 
+  // Killer mundial: look up each participant's chosen killer in the full scorers list.
+  // getWCTopScorers(100) covers ALL tournament goals (not just last 2 days).
+  // Penalties don't count per scoring rules: non-penalty goals = goals - penalties.
+  function killerGoalsFromScorers(playerName: string): number {
+    const key = playerKey(playerName);
+    const entry = allScorers.find((s) => {
+      const apiKey = fdoNormStr(s.player.name);
+      const apiWords = apiKey.split(/\s+/);
+      return apiKey.includes(key) || apiWords.some((w) => w === key);
+    });
+    if (!entry) return 0;
+    return Math.max(0, entry.goals - (entry.penalties ?? 0));
+  }
+
   const breakdowns = PARTICIPANTS.map((participant) => {
     const goalkeeperData: FixtureGoalkeeperData[] = [];
-    let mundialGoals = 0;
-    let seleccionGoals = 0;
 
+    // ── Killer goals (full-tournament, via scorers API) ──────────────────────
+    const mundialGoals = killerGoalsFromScorers(participant.killerMundial);
+    const seleccionGoals = killerGoalsFromScorers(participant.killerSeleccion);
+
+    // ── GK scoring (per-match, from recent match details) ────────────────────
     for (const [internalId, fixture] of fixtureMap.entries()) {
       if (!["FT", "AET", "PEN"].includes(fixture.status)) continue;
 
@@ -126,7 +148,6 @@ async function syncWithFootballDataOrg() {
       const detail = detailMap.get(fdoMatch.id);
       if (!detail) continue;
 
-      // GK scoring
       const gkName = participant.goalkeeper;
       const homeGK = (detail.lineups?.homeTeam?.startXI ?? []).find((p) => p.position === "Goalkeeper");
       const awayGK = (detail.lineups?.awayTeam?.startXI ?? []).find((p) => p.position === "Goalkeeper");
@@ -149,10 +170,6 @@ async function syncWithFootballDataOrg() {
         }
         goalkeeperData.push({ fixtureId: internalId, goalsAgainst, event, phase: fixture.phase });
       }
-
-      // Killer scoring
-      mundialGoals += goalsByPlayer(detail, participant.killerMundial);
-      seleccionGoals += goalsByPlayer(detail, participant.killerSeleccion);
     }
 
     return calculateParticipantScore({
@@ -263,15 +280,7 @@ async function syncWithFreeApi() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function teamNameMatches(apiName: string, localName: string): boolean {
-  const a = apiName.toLowerCase().trim();
-  const l = localName.toLowerCase().trim();
-  if (a === l) return true;
-  const aWords = a.split(/\s+/);
-  const lWords = l.split(/\s+/);
-  return (
-    (aWords[0].length > 3 && lWords.some((w) => w.startsWith(aWords[0]))) ||
-    (lWords[0].length > 3 && aWords.some((w) => w.startsWith(lWords[0])))
-  );
+  return teamsMatch(apiName, localName);
 }
 
 function normStr(s: string): string {
