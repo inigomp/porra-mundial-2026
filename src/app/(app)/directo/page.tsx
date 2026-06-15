@@ -263,6 +263,51 @@ export default async function DirectoPage() {
   const killerHomeParticipants = homeCode ? getKillerParticipantsForCode(homeCode) : [];
   const killerAwayParticipants = awayCode ? getKillerParticipantsForCode(awayCode) : [];
 
+  // Stakes across ALL fdoMatches (not just the focus) — so that every current/recent
+  // match's killers and GKs appear even when they aren't the primary focus.
+  type MatchStakes = {
+    matchLabel: string;
+    killers: Array<{ name: string; count: number; participants: string[] }>;
+    gkCards: Array<{ gkName: string; count: number; participants: string[]; side: "local" | "visitante" }>;
+  };
+  const allMatchesStakes: MatchStakes[] = [];
+  for (const fdoMatch of fdoMatches) {
+    const mHomeCode = getCodeFromFdo(fdoMatch.homeTeam.name);
+    const mAwayCode = getCodeFromFdo(fdoMatch.awayTeam.name);
+    const mKillers: MatchStakes["killers"] = [];
+    for (const code of [mHomeCode, mAwayCode]) {
+      if (!code) continue;
+      for (const k of getKillersForCode(code)) {
+        const pts = PARTICIPANTS.filter((p) => p.killerMundial === k.name).map((p) => p.name).sort((a, b) => a.localeCompare(b, "es"));
+        mKillers.push({ name: k.name, count: k.count, participants: pts });
+      }
+    }
+    const mGkCards: MatchStakes["gkCards"] = [];
+    const mHomeGkName = mHomeCode ? getGkNameForCode(mHomeCode) : null;
+    const mAwayGkName = mAwayCode ? getGkNameForCode(mAwayCode) : null;
+    if (mHomeGkName) {
+      const cnt = mHomeCode ? PARTICIPANTS.filter((p) => extractCode(p.goalkeeper) === mHomeCode).length : 0;
+      if (cnt > 0) mGkCards.push({ gkName: mHomeGkName, count: cnt, participants: mHomeCode ? getGkParticipantsForCode(mHomeCode) : [], side: "local" });
+    }
+    if (mAwayGkName) {
+      const cnt = mAwayCode ? PARTICIPANTS.filter((p) => extractCode(p.goalkeeper) === mAwayCode).length : 0;
+      if (cnt > 0) mGkCards.push({ gkName: mAwayGkName, count: cnt, participants: mAwayCode ? getGkParticipantsForCode(mAwayCode) : [], side: "visitante" });
+    }
+    const hasStakes = mKillers.length > 0 || mGkCards.length > 0;
+    if (!hasStakes) continue;
+    const isLive = fdoMatch.status === "IN_PLAY" || fdoMatch.status === "PAUSED";
+    const homeName = fdoMatch.homeTeam.shortName ?? fdoMatch.homeTeam.name;
+    const awayName = fdoMatch.awayTeam.shortName ?? fdoMatch.awayTeam.name;
+    const score = fdoMatch.score.fullTime.home !== null
+      ? ` (${fdoMatch.score.fullTime.home}–${fdoMatch.score.fullTime.away})`
+      : "";
+    allMatchesStakes.push({
+      matchLabel: `${FLAG[fdoMatch.homeTeam.name] ?? "🏳️"} ${homeName}${score} vs ${FLAG[fdoMatch.awayTeam.name] ?? "🏳️"} ${awayName}${isLive ? " 🔴" : ""}`,
+      killers: mKillers,
+      gkCards: mGkCards,
+    });
+  }
+
   // Prediction distribution for the focus match
   const focusPreds = focusId
     ? PARTICIPANTS.map((p) => p.predictions[focusId]).filter(Boolean)
@@ -497,113 +542,88 @@ export default async function DirectoPage() {
       {/* ── Match insights ── */}
       {focusId && (
         <>
-          {/* Participation stats */}
-          <section>
-            <h2 className="text-[#9ca3af] text-xs font-semibold uppercase tracking-widest mb-3">
-              En juego
-            </h2>
+          {/* Participation stats — covers ALL current/recent matches, not just focus */}
+          {allMatchesStakes.length > 0 && (
+            <section>
+              <h2 className="text-[#9ca3af] text-xs font-semibold uppercase tracking-widest mb-3">
+                En juego
+              </h2>
+              {allMatchesStakes.map((ms) => (
+                <div key={ms.matchLabel} className="mb-4">
+                  {allMatchesStakes.length > 1 && (
+                    <p className="text-[#6b7280] text-xs font-semibold mb-2">{ms.matchLabel}</p>
+                  )}
 
-            {/* GK cards */}
-            {(gkHomeName || gkAwayName) && (
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                {gkHomeName && (
-                  <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-base">🧤</span>
-                      <span className="text-[#9ca3af] text-xs font-semibold uppercase tracking-wide">
-                        Portero local
-                      </span>
+                  {/* GK cards */}
+                  {ms.gkCards.length > 0 && (
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      {ms.gkCards.map((gk) => (
+                        <div key={gk.gkName} className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-base">🧤</span>
+                            <span className="text-[#9ca3af] text-xs font-semibold uppercase tracking-wide">
+                              Portero {gk.side}
+                            </span>
+                          </div>
+                          <p className="text-white font-bold text-sm truncate">{stripCode(gk.gkName)}</p>
+                          <div className="mt-1">
+                            <StakesPopover count={gk.count} names={gk.participants} label={stripCode(gk.gkName)} />
+                          </div>
+                          <p className="text-[#6b7280] text-xs">participante{gk.count !== 1 ? "s" : ""}</p>
+                        </div>
+                      ))}
                     </div>
-                    <p className="text-white font-bold text-sm truncate">
-                      {stripCode(gkHomeName)}
-                    </p>
-                    <div className="mt-1">
-                      <StakesPopover count={gkHomeCount} names={gkHomeParticipants} label={stripCode(gkHomeName)} />
-                    </div>
-                    <p className="text-[#6b7280] text-xs">
-                      participante{gkHomeCount !== 1 ? "s" : ""}
-                    </p>
-                  </div>
-                )}
-                {gkAwayName && (
-                  <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-base">🧤</span>
-                      <span className="text-[#9ca3af] text-xs font-semibold uppercase tracking-wide">
-                        Portero visitante
-                      </span>
-                    </div>
-                    <p className="text-white font-bold text-sm truncate">
-                      {stripCode(gkAwayName)}
-                    </p>
-                    <div className="mt-1">
-                      <StakesPopover count={gkAwayCount} names={gkAwayParticipants} label={stripCode(gkAwayName)} />
-                    </div>
-                    <p className="text-[#6b7280] text-xs">
-                      participante{gkAwayCount !== 1 ? "s" : ""}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
+                  )}
 
-            {/* Killer mundial choices */}
-            {(killersHome.length > 0 || killersAway.length > 0) && (
-              <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-4 mb-3">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-base">⚡</span>
-                  <span className="text-[#9ca3af] text-xs font-semibold uppercase tracking-wide">
-                    Killers del mundial en juego
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {[...killersHome, ...killersAway].map((k) => {
-                    const participants = PARTICIPANTS
-                      .filter((p) => p.killerMundial === k.name)
-                      .map((p) => p.name)
-                      .sort((a, b) => a.localeCompare(b, "es"));
-                    return (
-                      <div
-                        key={k.name}
-                        className="bg-[#2a2d3a] rounded-lg px-3 py-1.5 flex items-center gap-2"
-                      >
-                        <span className="text-white text-sm font-medium">
-                          {stripCode(k.name)}
+                  {/* Killer mundial choices */}
+                  {ms.killers.length > 0 && (
+                    <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-4 mb-3">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-base">⚡</span>
+                        <span className="text-[#9ca3af] text-xs font-semibold uppercase tracking-wide">
+                          Killers del mundial en juego
                         </span>
-                        <StakesPopover count={k.count} names={participants} label={stripCode(k.name)} />
                       </div>
-                    );
-                  })}
+                      <div className="flex flex-wrap gap-2">
+                        {ms.killers.map((k) => (
+                          <div key={k.name} className="bg-[#2a2d3a] rounded-lg px-3 py-1.5 flex items-center gap-2">
+                            <span className="text-white text-sm font-medium">{stripCode(k.name)}</span>
+                            <StakesPopover count={k.count} names={k.participants} label={stripCode(k.name)} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              ))}
+            </section>
+          )}
 
-            {/* Prediction distribution */}
-            {focusPreds.length > 0 && (
-              <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-base">🗳️</span>
-                  <span className="text-[#9ca3af] text-xs font-semibold uppercase tracking-wide">
-                    ¿Qué predicen los {focusPreds.length}?
-                  </span>
+          {/* Prediction distribution */}
+          {focusPreds.length > 0 && (
+            <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-base">🗳️</span>
+                <span className="text-[#9ca3af] text-xs font-semibold uppercase tracking-wide">
+                  ¿Qué predicen los {focusPreds.length}?
+                </span>
+              </div>
+              <div className="flex gap-3">
+                <div className="flex-1 text-center bg-[#2a2d3a] rounded-lg py-2">
+                  <p className="text-white font-black text-xl">{predHomeWins}</p>
+                  <p className="text-[#6b7280] text-xs mt-0.5">gana local</p>
                 </div>
-                <div className="flex gap-3">
-                  <div className="flex-1 text-center bg-[#2a2d3a] rounded-lg py-2">
-                    <p className="text-white font-black text-xl">{predHomeWins}</p>
-                    <p className="text-[#6b7280] text-xs mt-0.5">gana local</p>
-                  </div>
-                  <div className="flex-1 text-center bg-[#2a2d3a] rounded-lg py-2">
-                    <p className="text-white font-black text-xl">{predDraws}</p>
-                    <p className="text-[#6b7280] text-xs mt-0.5">empate</p>
-                  </div>
-                  <div className="flex-1 text-center bg-[#2a2d3a] rounded-lg py-2">
-                    <p className="text-white font-black text-xl">{predAwayWins}</p>
-                    <p className="text-[#6b7280] text-xs mt-0.5">gana visitante</p>
-                  </div>
+                <div className="flex-1 text-center bg-[#2a2d3a] rounded-lg py-2">
+                  <p className="text-white font-black text-xl">{predDraws}</p>
+                  <p className="text-[#6b7280] text-xs mt-0.5">empate</p>
+                </div>
+                <div className="flex-1 text-center bg-[#2a2d3a] rounded-lg py-2">
+                  <p className="text-white font-black text-xl">{predAwayWins}</p>
+                  <p className="text-[#6b7280] text-xs mt-0.5">gana visitante</p>
                 </div>
               </div>
-            )}
-          </section>
+            </div>
+          )}
 
           {/* Classification impact */}
           {scenariosData.length > 0 && (
