@@ -10,6 +10,7 @@ import {
   BookOpen,
   LogOut,
   Grid2x2,
+  GitBranch,
   Settings,
   Table2,
 } from "lucide-react";
@@ -19,6 +20,7 @@ const navItems = [
   { href: "/predicciones", label: "PREDICCIONES", icon: ListChecks },
   { href: "/clasificacion", label: "CLASIFICACIÓN", icon: BarChart3 },
   { href: "/grupos", label: "FASE DE GRUPOS", icon: Grid2x2 },
+  { href: "/eliminatoria", label: "ELIMINATORIA", icon: GitBranch },
   { href: "/directo", label: "EN VIVO", icon: Radio },
   { href: "/datos", label: "DATOS", icon: Table2 },
   { href: "/reglas", label: "REGLAS", icon: BookOpen },

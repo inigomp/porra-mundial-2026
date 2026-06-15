@@ -105,13 +105,13 @@ function fdoToSpanish(fdoName: string): string | null {
 // Derived from the porra spreadsheet rows 135-200.
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface BracketEntry {
+export interface BracketEntry {
   slot1: string;
   slot2: string;
   winnerSlot: string;
 }
 
-const BRACKET: BracketEntry[] = [
+export const BRACKET: BracketEntry[] = [
   // ── DIECISEISAVOS (R32) ───────────────────────────────────────────────────
   { slot1: "2º grupo A",            slot2: "2º grupo B",            winnerSlot: "OCTAVOFINALISTA 1"  },
   { slot1: "1º grupo C",            slot2: "2º grupo F",            winnerSlot: "OCTAVOFINALISTA 2"  },
