@@ -23,6 +23,7 @@ import { MATCHES, PARTICIPANTS } from "@/lib/participants";
 import { teamsMatch } from "@/lib/live-scores";
 import { setStandingsCache } from "@/lib/standings-cache";
 import { calculateParticipantScore, buildLeaderboard, type FixtureGoalkeeperData } from "@/lib/scoring-engine";
+import { getKillerOverride, getGkOverride } from "@/lib/score-overrides";
 import type { Fixture, GoalkeeperMatchEvent, KillerGoals } from "@/lib/types";
 
 /**
@@ -131,8 +132,9 @@ async function syncWithFootballDataOrg() {
   const breakdowns = PARTICIPANTS.map((participant) => {
     const goalkeeperData: FixtureGoalkeeperData[] = [];
 
-    // ── Killer goals (full-tournament, via scorers API) ──────────────────────
-    const mundialGoals = killerGoalsFromScorers(participant.killerMundial);
+    // ── Killer goals (full-tournament, via scorers API; admin override wins) ─
+    const mundialOverride = getKillerOverride(participant.killerMundial);
+    const mundialGoals = mundialOverride !== null ? mundialOverride : killerGoalsFromScorers(participant.killerMundial);
     const seleccionGoals = killerGoalsFromScorers(participant.killerSeleccion);
 
     // ── GK scoring (per-match, from recent match details) ────────────────────
@@ -172,12 +174,19 @@ async function syncWithFootballDataOrg() {
       }
     }
 
-    return calculateParticipantScore({
+    const breakdown = calculateParticipantScore({
       participant,
       fixtures,
       goalkeeperData,
       killerGoals: { mundialGoals, seleccionGoals },
     });
+
+    // Admin GK override: replace computed GK points with the manually set value.
+    const gkOverridePts = getGkOverride(participant.goalkeeper);
+    if (gkOverridePts !== null) {
+      return { ...breakdown, totalFromGoalkeeper: gkOverridePts };
+    }
+    return breakdown;
   });
 
   const standings = buildLeaderboard(breakdowns, fixtures);
