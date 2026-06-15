@@ -82,12 +82,6 @@ export async function GET() {
     currentGkPoints,
   });
 }
-    killerOverrides: getAllKillerOverrides(),
-    gkOverrides: getAllGkOverrides(),
-    currentKillerGoals,
-    currentGkPoints,
-  });
-}
 
 /**
  * POST /api/admin/killer-gk-overrides
