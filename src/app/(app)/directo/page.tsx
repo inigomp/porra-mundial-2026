@@ -405,12 +405,28 @@ export default async function DirectoPage() {
           baseBreakdowns,
           PARTICIPANTS
         );
-        const newTop5 = sim.standings.slice(0, 8).map((e) => ({
+        const top8 = sim.standings.slice(0, 8).map((e) => ({
           ...e,
           baseRank:
             baseStandings.find((b) => b.participantId === e.participantId)
               ?.rank ?? 99,
         }));
+        // Append the current user if they're outside the top 8
+        const meInTop = me && top8.some((e) => e.participantId === me.id);
+        const meEntry = me && !meInTop
+          ? sim.standings.find((e) => e.participantId === me.id)
+          : null;
+        const newTop5 = meEntry
+          ? [
+              ...top8,
+              {
+                ...meEntry,
+                baseRank:
+                  baseStandings.find((b) => b.participantId === meEntry.participantId)
+                    ?.rank ?? 99,
+              },
+            ]
+          : top8;
         const correctPredCount = sim.standings.filter(
           (e) => e.pointsDelta > 0
         ).length;
@@ -675,14 +691,20 @@ export default async function DirectoPage() {
                     {/* Divider */}
                     <div className="border-t border-[#2a2d3a] mb-3" />
 
-                    {/* New top 8 */}
+                    {/* New top 8 (+ current user if outside top 8) */}
                     <div className="space-y-2">
-                      {s.newTop5.map((e) => {
+                      {s.newTop5.map((e, idx) => {
+                        const isMe = me?.id === e.participantId;
+                        const isSeparator = isMe && idx === 8;
                         const rankDelta = e.baseRank - e.projectedRank;
                         return (
+                          <>
+                          {isSeparator && (
+                            <div className="border-t border-dashed border-[#2a2d3a] my-1" />
+                          )}
                           <div
                             key={e.participantId}
-                            className="flex items-center gap-2"
+                            className={`flex items-center gap-2 ${isMe ? "bg-[#2a2d3a] rounded px-1 -mx-1" : ""}`}
                           >
                             <span className="text-[#6b7280] text-xs w-5 text-right font-mono shrink-0">
                               {e.projectedRank}
@@ -711,6 +733,7 @@ export default async function DirectoPage() {
                               </span>
                             )}
                           </div>
+                          </>
                         );
                       })}
                     </div>
