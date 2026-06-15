@@ -3,6 +3,7 @@ import { buildLeaderboard, calculateParticipantScore } from "@/lib/scoring-engin
 import { PARTICIPANTS } from "@/lib/participants";
 import { getStandingsCache } from "@/lib/standings-cache";
 import { getMatchesWithLiveScores } from "@/lib/live-scores";
+import { getWCTopScorers, playerKey, normStr } from "@/lib/football-data-org";
 import type { Fixture, KillerGoals } from "@/lib/types";
 
 // Prevent Next.js from caching this route handler at the CDN level.
@@ -18,24 +19,35 @@ export const dynamic = "force-dynamic";
  *   2. FDO via fetch cache (revalidate: 60s, shared across all Lambda instances)
  *      → prediction points only (GK/killer = 0 until cron runs)
  */
+/**
+ * GET /api/standings
+ *
+ * Always returns accurate standings including killer goals.
+ * killer goals come from getWCTopScorers() which uses Next.js fetch cache
+ * (revalidate: 60s) — shared across ALL Lambda instances via Vercel's Data Cache.
+ *
+ * GK data: uses enriched cache if available (written by cron), otherwise 0.
+ * The cron is the only source of GK data; prediction + killer data are always live.
+ */
 export async function GET() {
-  // 1. Try the enriched cache (written by the cron job after a FDO sync)
-  const cached = getStandingsCache();
-  if (cached) {
-    return NextResponse.json({
-      standings: cached.standings,
-      meta: {
-        totalParticipants: PARTICIPANTS.length,
-        playedMatches: cached.standings.length > 0 ? "cached" : 0,
-        dataSource: cached.dataSource,
-        cachedAt: new Date(cached.cachedAt).toISOString(),
-        lastUpdated: new Date(cached.cachedAt).toISOString(),
-      },
-    });
-  }
+  // Fetch matches + scorers in parallel — both are Next.js Data Cache cached (60s)
+  // and shared across all Lambda instances, so no stale-cache-per-instance problem.
+  const [liveMatches, allScorers] = await Promise.all([
+    getMatchesWithLiveScores(),
+    getWCTopScorers(100),
+  ]);
 
-  // 2. Fallback: FDO via fetch cache (admin overrides + FDO live/recent + static)
-  const liveMatches = await getMatchesWithLiveScores();
+  // Build killer goals lookup from full tournament scorers (no penalties)
+  function killerGoalsFor(playerName: string): number {
+    const key = playerKey(playerName);
+    const entry = allScorers.find((s) => {
+      const apiKey = normStr(s.player.name);
+      const apiWords = apiKey.split(/\s+/);
+      return apiKey.includes(key) || apiWords.some((w) => w === key);
+    });
+    if (!entry) return 0;
+    return Math.max(0, entry.goals - (entry.penalties ?? 0));
+  }
 
   const fixtures: Fixture[] = liveMatches.map((m) => ({
     id: m.id,
@@ -53,16 +65,22 @@ export async function GET() {
     phase: "groups",
   }));
 
-  const killerGoals: KillerGoals = { mundialGoals: 0, seleccionGoals: 0 };
+  // Get GK data from the enriched cache if available (written by cron)
+  const cached = getStandingsCache();
 
-  const breakdowns = PARTICIPANTS.map((participant) =>
-    calculateParticipantScore({
+  const breakdowns = PARTICIPANTS.map((participant) => {
+    const killerGoals: KillerGoals = {
+      mundialGoals: killerGoalsFor(participant.killerMundial),
+      seleccionGoals: killerGoalsFor(participant.killerSeleccion),
+    };
+    const goalkeeperData = cached?.goalkeeperData[participant.id] ?? [];
+    return calculateParticipantScore({
       participant,
       fixtures,
-      goalkeeperData: [],
+      goalkeeperData,
       killerGoals,
-    })
-  );
+    });
+  });
 
   const standings = buildLeaderboard(breakdowns, fixtures);
 
@@ -71,7 +89,7 @@ export async function GET() {
     meta: {
       totalParticipants: PARTICIPANTS.length,
       playedMatches: fixtures.filter((f) => f.status === "FT").length,
-      dataSource: "fdo-live (fetch cache, revalidate 60s)",
+      dataSource: cached ? "scorers-api+gk-cache" : "scorers-api (no gk data yet)",
       lastUpdated: new Date().toISOString(),
     },
   });
