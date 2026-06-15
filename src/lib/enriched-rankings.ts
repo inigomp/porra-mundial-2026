@@ -1,21 +1,113 @@
 /**
  * Computes real tournament rankings using FDO API:
  *  - killerMundial / killerSeleccion: top scorers from getWCTopScorers()
- *  - topGoalkeepers: GKs from actual match lineups via getFinishedMatchDetail()
+ *  - topGoalkeepers: GKs from TEAM_GK_MAP (actual starters, manually verified)
  *
- * Finished match details are CDN-cached with revalidate: 3600 (immutable once done).
  * All fetch() calls use next.revalidate — shared across Vercel Lambda instances.
+ *
+ * NOTE: TEAM_GK_MAP must be updated when the actual starter differs from the
+ * expected one. The cron (sync-scores) uses lineups and is the authoritative source
+ * for per-participant GK scoring.
  */
 
 import {
   getAllFinishedWCMatches,
-  getFinishedMatchDetail,
   getWCTopScorers,
   normStr,
 } from "./football-data-org";
 import { goalkeeperGoalsConcededScore } from "./scoring-engine";
 import type { KillerRankEntry, GkRankEntry, EnrichedRankings } from "./types";
 export type { KillerRankEntry, GkRankEntry, EnrichedRankings };
+
+/**
+ * WC 2026 starting goalkeepers. Keys are normStr() of the FDO English team name.
+ * Update this map when the actual starter differs from the expected one.
+ */
+const TEAM_GK_MAP: Record<string, string> = {
+  // Group A — Mexico, South Africa, Korea Republic, Czech Republic
+  "mexico":                       "Luis Malagón",
+  "south africa":                 "Ronwen Williams",
+  "korea republic":               "Kim Seung-gyu",
+  "south korea":                  "Kim Seung-gyu",
+  "czech republic":               "Jiří Staněk",
+  "czechia":                      "Jiří Staněk",
+
+  // Group B — Canada, Bosnia, Qatar, Switzerland
+  "canada":                       "Maxime Crépeau",
+  "bosnia and herzegovina":       "Nikola Vasilj",
+  "bosnia & herzegovina":         "Nikola Vasilj",
+  "bosnia-herzegovina":           "Nikola Vasilj",
+  "qatar":                        "Meshaal Barsham",
+  "switzerland":                  "Yann Sommer",
+
+  // Group C — Brazil, Morocco, Haiti, Scotland
+  "brazil":                       "Alisson Becker",
+  "morocco":                      "Yassine Bounou",
+  "haiti":                        "Josue Duverger",
+  "scotland":                     "Angus Gunn",
+
+  // Group D — United States, Paraguay, Australia, Turkey
+  "united states":                "Matt Turner",
+  "paraguay":                     "Gastón Ruíz",
+  "australia":                    "Mathew Ryan",
+  "turkey":                       "Altay Bayındır",
+
+  // Group E — Germany, Curaçao, Ivory Coast, Ecuador
+  "germany":                      "Manuel Neuer",
+  "curacao":                      "Eloy Room",
+  "ivory coast":                  "Yahia Fofana",
+  "cote d'ivoire":                "Yahia Fofana",
+  "ecuador":                      "Hernán Galíndez",
+
+  // Group F — Netherlands, Japan, Sweden, Tunisia
+  "netherlands":                  "Bart Verbruggen",
+  "japan":                        "Zion Suzuki",
+  "sweden":                       "Robin Olsen",
+  "tunisia":                      "Béchir Ben Said",
+
+  // Group G — Belgium, Egypt, Iran, New Zealand
+  "belgium":                      "Koen Casteels",
+  "egypt":                        "Mohammed Abu Gabal",
+  "iran":                         "Alireza Beiranvand",
+  "new zealand":                  "Max Crocombe",
+
+  // Group H — Spain, Saudi Arabia, Uruguay, Cape Verde
+  "spain":                        "Unai Simón",
+  "saudi arabia":                 "Mohammed Al-Owais",
+  "uruguay":                      "Sergio Rochet",
+  "cape verde":                   "Vozinha",
+  "cabo verde":                   "Vozinha",
+
+  // Group I — France, Senegal, Iraq, Norway
+  "france":                       "Mike Maignan",
+  "senegal":                      "Édouard Mendy",
+  "iraq":                         "Jalal Hassan",
+  "norway":                       "Ørjan Nyland",
+
+  // Group J — Argentina, Algeria, Austria, Jordan
+  "argentina":                    "Emiliano Martínez",
+  "algeria":                      "Raïs M'Bolhi",
+  "austria":                      "Patrick Pentz",
+  "jordan":                       "Amer Shafi",
+
+  // Group K — Portugal, DR Congo, Uzbekistan, Colombia
+  "portugal":                     "Diogo Costa",
+  "congo dr":                     "Joël Kiassumbua",
+  "dr congo":                     "Joël Kiassumbua",
+  "democratic republic of congo": "Joël Kiassumbua",
+  "uzbekistan":                   "Eldorbek Suyunov",
+  "colombia":                     "Camilo Vargas",
+
+  // Group L — England, Croatia, Ghana, Panama
+  "england":                      "Jordan Pickford",
+  "croatia":                      "Dominik Livaković",
+  "ghana":                        "Lawrence Ati-Zigi",
+  "panama":                       "Luis Mejía",
+};
+
+function lookupTeamGK(fdoTeamName: string): string | null {
+  return TEAM_GK_MAP[normStr(fdoTeamName)] ?? null;
+}
 
 /** Spanish forwards shown when Spain hasn't scored yet */
 const SPAIN_FALLBACK_FORWARDS = [
@@ -26,50 +118,13 @@ const SPAIN_FALLBACK_FORWARDS = [
   "Ferran Torres",
 ];
 
-/**
- * Core helper: fetch all finished match details in parallel (1h CDN cache)
- * and build a Map of GK name → accumulated points from goals conceded.
- * GK name comes directly from the FDO lineup (position === "Goalkeeper").
- */
-async function buildGkTotals(): Promise<Map<string, number>> {
-  const finishedMatches = await getAllFinishedWCMatches();
-  const details = await Promise.all(
-    finishedMatches.map((m) => getFinishedMatchDetail(m.id))
-  );
-
-  const gkTotals = new Map<string, number>();
-  for (let i = 0; i < finishedMatches.length; i++) {
-    const match = finishedMatches[i];
-    const detail = details[i];
-    if (!detail?.lineups) continue;
-
-    const hs = match.score.fullTime.home ?? 0;
-    const as_ = match.score.fullTime.away ?? 0;
-
-    const homeGK = detail.lineups.homeTeam?.startXI?.find(
-      (p) => p.position === "Goalkeeper"
-    );
-    const awayGK = detail.lineups.awayTeam?.startXI?.find(
-      (p) => p.position === "Goalkeeper"
-    );
-
-    if (homeGK) {
-      gkTotals.set(homeGK.name, (gkTotals.get(homeGK.name) ?? 0) + goalkeeperGoalsConcededScore(as_));
-    }
-    if (awayGK) {
-      gkTotals.set(awayGK.name, (gkTotals.get(awayGK.name) ?? 0) + goalkeeperGoalsConcededScore(hs));
-    }
-  }
-  return gkTotals;
-}
-
 export async function getEnrichedRankings(): Promise<EnrichedRankings> {
   const empty: EnrichedRankings = { killerMundial: [], killerSeleccion: [], topGoalkeepers: [] };
 
   try {
-    const [topScorers, gkTotals] = await Promise.all([
+    const [topScorers, finishedMatches] = await Promise.all([
       getWCTopScorers(100),
-      buildGkTotals(),
+      getAllFinishedWCMatches(),
     ]);
 
     // ── Killer mundial ───────────────────────────────────────────────────────
@@ -91,6 +146,16 @@ export async function getEnrichedRankings(): Promise<EnrichedRankings> {
       : SPAIN_FALLBACK_FORWARDS.map((name) => ({ name, goals: 0 }));
 
     // ── Top 5 porteros ───────────────────────────────────────────────────────
+    const gkTotals = new Map<string, number>();
+    for (const match of finishedMatches) {
+      const hs = match.score.fullTime.home ?? 0;
+      const as_ = match.score.fullTime.away ?? 0;
+      const homeGK = lookupTeamGK(match.homeTeam.name);
+      const awayGK = lookupTeamGK(match.awayTeam.name);
+      if (homeGK) gkTotals.set(homeGK, (gkTotals.get(homeGK) ?? 0) + goalkeeperGoalsConcededScore(as_));
+      if (awayGK) gkTotals.set(awayGK, (gkTotals.get(awayGK) ?? 0) + goalkeeperGoalsConcededScore(hs));
+    }
+
     const topGoalkeepers: GkRankEntry[] = [...gkTotals.entries()]
       .map(([name, pts]) => ({ name, pts }))
       .sort((a, b) => b.pts - a.pts || a.name.localeCompare(b.name))
@@ -110,7 +175,17 @@ export async function getEnrichedRankings(): Promise<EnrichedRankings> {
  */
 export async function getGoalkeeperPtsMap(): Promise<Map<string, number>> {
   try {
-    return await buildGkTotals();
+    const finishedMatches = await getAllFinishedWCMatches();
+    const gkTotals = new Map<string, number>();
+    for (const match of finishedMatches) {
+      const hs = match.score.fullTime.home ?? 0;
+      const as_ = match.score.fullTime.away ?? 0;
+      const homeGK = lookupTeamGK(match.homeTeam.name);
+      const awayGK = lookupTeamGK(match.awayTeam.name);
+      if (homeGK) gkTotals.set(homeGK, (gkTotals.get(homeGK) ?? 0) + goalkeeperGoalsConcededScore(as_));
+      if (awayGK) gkTotals.set(awayGK, (gkTotals.get(awayGK) ?? 0) + goalkeeperGoalsConcededScore(hs));
+    }
+    return gkTotals;
   } catch {
     return new Map();
   }
