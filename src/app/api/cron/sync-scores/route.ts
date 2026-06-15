@@ -13,6 +13,8 @@ import {
   analyzeGKEvents,
   goalsAgainstTeam,
   getWCTopScorers,
+  getWCStandings,
+  getAllFinishedWCMatches,
   playerKey,
   normStr as fdoNormStr,
   mapFdoStatus,
@@ -25,6 +27,7 @@ import { setStandingsCache } from "@/lib/standings-cache";
 import { calculateParticipantScore, buildLeaderboard, type FixtureGoalkeeperData } from "@/lib/scoring-engine";
 import { getKillerOverride, getGkOverride, getPlayoffActuals } from "@/lib/score-overrides";
 import { PLAYOFF_SLOTS } from "@/lib/playoff-slots";
+import { buildPlayoffActuals } from "@/lib/playoff-actuals";
 import type { Fixture, GoalkeeperMatchEvent, KillerGoals } from "@/lib/types";
 
 /**
@@ -61,11 +64,16 @@ export async function GET(request: NextRequest) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function syncWithFootballDataOrg() {
-  const [liveMatches, recentMatches, allScorers] = await Promise.all([
+  const [liveMatches, recentMatches, allScorers, fdoStandings, allFinishedMatches] = await Promise.all([
     getLiveWCMatches(),
     getRecentWCMatches(2),
     getWCTopScorers(100),
+    getWCStandings(),
+    getAllFinishedWCMatches(),
   ]);
+
+  // Auto-derive playoff actuals from standings + finished matches; admin overrides take priority.
+  const playoffActuals = buildPlayoffActuals(fdoStandings, allFinishedMatches, getPlayoffActuals());
 
   const liveIds = new Set(liveMatches.map((m) => m.id));
   // allFdoMatches: live + recent (for score/status) — used for fixtureMap
@@ -176,7 +184,6 @@ async function syncWithFootballDataOrg() {
       }
     }
 
-    const playoffActuals = getPlayoffActuals();
     const breakdown = calculateParticipantScore({
       participant,
       fixtures,
@@ -273,6 +280,7 @@ async function syncWithFreeApi() {
   const fixtures = Array.from(fixtureMap.values());
   const killerGoals: KillerGoals = { mundialGoals: 0, seleccionGoals: 0 };
 
+  // Free-API path: no standings available; use admin overrides only for playoff actuals.
   const playoffActuals = getPlayoffActuals();
   const breakdowns = PARTICIPANTS.map((participant) =>
     calculateParticipantScore({

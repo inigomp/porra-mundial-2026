@@ -91,6 +91,11 @@ export interface FdoMatchSummary {
   utcDate: string;
   /** "TIMED" | "SCHEDULED" | "IN_PLAY" | "PAUSED" | "FINISHED" | "POSTPONED" | "CANCELLED" */
   status: string;
+  /**
+   * Tournament stage: "GROUP_STAGE" | "LAST_32" | "LAST_16" | "QUARTER_FINALS" |
+   * "SEMI_FINALS" | "THIRD_PLACE" | "FINAL"
+   */
+  stage?: string;
   minute?: number;
   homeTeam: FdoTeamRef;
   awayTeam: FdoTeamRef;
@@ -470,4 +475,45 @@ export function mapFdoStatus(
 
 export function isAvailable(): boolean {
   return hasToken();
+}
+
+// ─────────────────────────────────────────────
+// Group standings
+// ─────────────────────────────────────────────
+
+export interface FdoStandingEntry {
+  position: number;
+  team: FdoTeamRef;
+  playedGames: number;
+  points: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+}
+
+export interface FdoStandingGroup {
+  stage: string;
+  type: string;
+  /** e.g. "GROUP_A" through "GROUP_L" */
+  group: string;
+  table: FdoStandingEntry[];
+}
+
+/**
+ * Returns group standings for the WC (GROUP_STAGE only).
+ * Used to derive which team finished 1st, 2nd, or 3rd in each group.
+ */
+export async function getWCStandings(): Promise<FdoStandingGroup[]> {
+  if (!hasToken()) return [];
+  try {
+    const res = await fetch(`${BASE_URL}/competitions/WC/standings`, {
+      headers: apiHeaders(),
+      next: { revalidate: 60 },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.standings ?? []).filter((s: FdoStandingGroup) => s.type === "TOTAL");
+  } catch {
+    return [];
+  }
 }
