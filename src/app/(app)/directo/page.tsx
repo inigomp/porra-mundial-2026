@@ -263,15 +263,20 @@ export default async function DirectoPage() {
   const killerHomeParticipants = homeCode ? getKillerParticipantsForCode(homeCode) : [];
   const killerAwayParticipants = awayCode ? getKillerParticipantsForCode(awayCode) : [];
 
-  // Stakes across ALL fdoMatches (not just the focus) — so that every current/recent
-  // match's killers and GKs appear even when they aren't the primary focus.
+  // Stakes across relevant matches:
+  //   - If there are live matches: show all of them (simultaneous matches)
+  //   - If no live: show only the single most recent finished match
+  const stakesMatches = hasLive
+    ? fdoMatches.filter((m) => m.status === "IN_PLAY" || m.status === "PAUSED")
+    : fdoFocus ? [fdoFocus] : [];
+
   type MatchStakes = {
     matchLabel: string;
     killers: Array<{ name: string; count: number; participants: string[] }>;
     gkCards: Array<{ gkName: string; count: number; participants: string[]; side: "local" | "visitante" }>;
   };
   const allMatchesStakes: MatchStakes[] = [];
-  for (const fdoMatch of fdoMatches) {
+  for (const fdoMatch of stakesMatches) {
     const mHomeCode = getCodeFromFdo(fdoMatch.homeTeam.name);
     const mAwayCode = getCodeFromFdo(fdoMatch.awayTeam.name);
     const mKillers: MatchStakes["killers"] = [];
