@@ -95,9 +95,21 @@ function getCodeFromFdo(name: string): string | null {
   return FDO_TO_CODE[normKey(name)] ?? null;
 }
 
+// Participants use Spanish football abbreviations (SUE, ALE, ING, NLD, JAP…)
+// while FDO_TO_CODE maps to standard FIFA codes (SWE, GER, ENG, NED, JPN…).
+// Normalize on extraction so comparisons always use standard codes.
+const SPANISH_TO_STANDARD: Record<string, string> = {
+  SUE: "SWE", // Suecia
+  ALE: "GER", // Alemania
+  ING: "ENG", // Inglaterra
+  NLD: "NED", // Países Bajos
+  JAP: "JPN", // Japón
+};
+
 function extractCode(s: string): string | null {
   const m = s.match(/\(([A-Z]{2,3})\)\s*$/);
-  return m ? m[1] : null;
+  if (!m) return null;
+  return SPANISH_TO_STANDARD[m[1]] ?? m[1];
 }
 
 function stripCode(s: string): string {

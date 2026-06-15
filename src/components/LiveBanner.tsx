@@ -176,9 +176,6 @@ export default async function LiveBanner() {
             🧤 <span className="text-white font-bold">{gkCount}</span> portero{gkCount !== 1 ? "s" : ""} en juego
           </p>
         )}
-        {matches.length > 1 && (
-          <p>+{matches.length - 1} partido{matches.length > 2 ? "s" : ""} más</p>
-        )}
       </div>
 
       {/* Live indicator (desktop) */}
