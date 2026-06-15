@@ -263,12 +263,9 @@ export default async function DirectoPage() {
   const killerHomeParticipants = homeCode ? getKillerParticipantsForCode(homeCode) : [];
   const killerAwayParticipants = awayCode ? getKillerParticipantsForCode(awayCode) : [];
 
-  // Aggregate stakes from all relevant matches into a single section.
-  //   - If live: all IN_PLAY/PAUSED matches combined
-  //   - If none live: only the most recent finished match
-  const stakesMatches = hasLive
-    ? fdoMatches.filter((m) => m.status === "IN_PLAY" || m.status === "PAUSED")
-    : fdoFocus ? [fdoFocus] : [];
+  // Stakes for the single focus match (live if in progress, otherwise most recent finished).
+  // World Cup matches are never simultaneous, so there is always at most 1 live match.
+  const stakesMatches = fdoFocus ? [fdoFocus] : [];
 
   // Deduplicated killers and GK cards across all stakesMatches
   const aggregatedKillers: Array<{ name: string; count: number; participants: string[] }> = [];
