@@ -35,9 +35,9 @@ const TEAM_GK_MAP: Record<string, string> = {
 
   // Group B — Canada, Bosnia, Qatar, Switzerland
   "canada":                       "Maxime Crépeau",
-  "bosnia and herzegovina":       "Kenan Pirić",
-  "bosnia & herzegovina":         "Kenan Pirić",
-  "bosnia-herzegovina":           "Kenan Pirić",
+  "bosnia and herzegovina":       "Nikola Vasilj",   // actual starter (not Pirić)
+  "bosnia & herzegovina":         "Nikola Vasilj",
+  "bosnia-herzegovina":           "Nikola Vasilj",
   "qatar":                        "Meshaal Barsham",
   "switzerland":                  "Yann Sommer",
 
