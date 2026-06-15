@@ -223,6 +223,24 @@ export async function getMatchDetail(matchId: number): Promise<FdoMatchDetail | 
   }
 }
 
+/**
+ * Same as getMatchDetail but uses a 1-hour CDN cache.
+ * Safe for finished matches whose data won't change.
+ */
+export async function getFinishedMatchDetail(matchId: number): Promise<FdoMatchDetail | null> {
+  if (!hasToken()) return null;
+  try {
+    const res = await fetch(`${BASE_URL}/matches/${matchId}`, {
+      headers: apiHeaders(),
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 // ─────────────────────────────────────────────
 // Helper functions
 // ─────────────────────────────────────────────
