@@ -484,12 +484,7 @@ export default async function DirectoPage() {
               </span>
             </div>
           </div>
-          {fdoMatches.length > 1 && (
-            <p className="text-center text-[#6b7280] text-xs mt-3">
-              +{fdoMatches.length - 1} partido
-              {fdoMatches.length > 2 ? "s" : ""} más en juego
-            </p>
-          )}
+
         </div>
       ) : upcomingStatic ? (
         <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-5">
