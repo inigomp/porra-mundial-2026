@@ -23,6 +23,8 @@ export default function AdminPanel() {
   // Killer / GK overrides state
   const [killerOverrides, setKillerOverrides] = useState<KillerOverride[]>([]);
   const [gkOverrides, setGkOverrides] = useState<GkOverride[]>([]);
+  const [currentKillerGoals, setCurrentKillerGoals] = useState<Record<string, number>>({});
+  const [currentGkPoints, setCurrentGkPoints] = useState<Record<string, number>>({});
   const [editingKiller, setEditingKiller] = useState<{ playerName: string; value: string } | null>(null);
   const [editingGk, setEditingGk] = useState<{ gkName: string; value: string } | null>(null);
 
@@ -55,6 +57,8 @@ export default function AdminPanel() {
         const data = await res.json();
         setKillerOverrides(data.killerOverrides ?? []);
         setGkOverrides(data.gkOverrides ?? []);
+        setCurrentKillerGoals(data.currentKillerGoals ?? {});
+        setCurrentGkPoints(data.currentGkPoints ?? {});
       }
     } catch {
       // ignore
@@ -310,17 +314,22 @@ export default function AdminPanel() {
               <thead>
                 <tr className="text-[#6b7280] text-xs border-b border-[#2a2d3a] bg-[#13151f]">
                   <th className="px-4 py-2.5 text-left font-medium">Jugador (killer mundial)</th>
-                  <th className="px-4 py-2.5 text-center font-medium">Goles (override)</th>
+                  <th className="px-4 py-2.5 text-center font-medium">Goles actuales</th>
+                  <th className="px-4 py-2.5 text-center font-medium">Override</th>
                   <th className="px-4 py-2.5 text-right font-medium">Acción</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#2a2d3a]">
                 {uniqueKillers.map((playerName) => {
                   const ov = killerOverrides.find((k) => k.playerName === playerName);
+                  const current = currentKillerGoals[playerName];
                   const isEd = editingKiller?.playerName === playerName;
                   return (
                     <tr key={playerName} className={ov ? "bg-[#ffd700]/5" : ""}>
                       <td className="px-4 py-2 text-white text-xs">{playerName}</td>
+                      <td className="px-4 py-2 text-center text-[#9ca3af] text-xs tabular-nums">
+                        {current !== undefined ? `${current} goles` : <span className="text-[#4b5563]">sin caché</span>}
+                      </td>
                       <td className="px-4 py-2 text-center">
                         {isEd ? (
                           <input
@@ -378,17 +387,22 @@ export default function AdminPanel() {
               <thead>
                 <tr className="text-[#6b7280] text-xs border-b border-[#2a2d3a] bg-[#13151f]">
                   <th className="px-4 py-2.5 text-left font-medium">Portero</th>
-                  <th className="px-4 py-2.5 text-center font-medium">Pts totales (override)</th>
+                  <th className="px-4 py-2.5 text-center font-medium">Pts actuales</th>
+                  <th className="px-4 py-2.5 text-center font-medium">Override</th>
                   <th className="px-4 py-2.5 text-right font-medium">Acción</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#2a2d3a]">
                 {uniqueGks.map((gkName) => {
                   const ov = gkOverrides.find((g) => g.gkName === gkName);
+                  const current = currentGkPoints[gkName];
                   const isEd = editingGk?.gkName === gkName;
                   return (
                     <tr key={gkName} className={ov ? "bg-[#ffd700]/5" : ""}>
                       <td className="px-4 py-2 text-white text-xs">{gkName}</td>
+                      <td className="px-4 py-2 text-center text-[#9ca3af] text-xs tabular-nums">
+                        {current !== undefined ? `${current} pts` : <span className="text-[#4b5563]">sin caché</span>}
+                      </td>
                       <td className="px-4 py-2 text-center">
                         {isEd ? (
                           <input

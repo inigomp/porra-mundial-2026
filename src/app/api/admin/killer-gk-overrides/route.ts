@@ -10,7 +10,8 @@ import {
   type KillerOverride,
   type GkOverride,
 } from "@/lib/score-overrides";
-import { clearStandingsCache } from "@/lib/standings-cache";
+import { clearStandingsCache, getStandingsCache } from "@/lib/standings-cache";
+import { PARTICIPANTS } from "@/lib/participants";
 
 function isAuthorized(adminCookie: string | undefined): boolean {
   const secret = process.env.ADMIN_SECRET;
@@ -18,15 +19,39 @@ function isAuthorized(adminCookie: string | undefined): boolean {
   return adminCookie === secret;
 }
 
-/** GET /api/admin/killer-gk-overrides — returns all active killer and GK overrides */
+/** GET /api/admin/killer-gk-overrides — returns all active killer and GK overrides + current computed values */
 export async function GET() {
   const cookieStore = await cookies();
   if (!isAuthorized(cookieStore.get("porra_admin")?.value)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // Build current computed values from standings cache (written by cron)
+  const cache = getStandingsCache();
+
+  // killer name → goals (from first participant that has this killer in cache)
+  const currentKillerGoals: Record<string, number> = {};
+  // gk name → total points (from first participant that has this GK in cache)
+  const currentGkPoints: Record<string, number> = {};
+
+  if (cache) {
+    for (const p of PARTICIPANTS) {
+      const kg = cache.killerGoals[p.id];
+      if (kg && !(p.killerMundial in currentKillerGoals)) {
+        currentKillerGoals[p.killerMundial] = kg.mundialGoals;
+      }
+      const gkPts = cache.goalkeeperPoints[p.id];
+      if (gkPts !== undefined && !(p.goalkeeper in currentGkPoints)) {
+        currentGkPoints[p.goalkeeper] = gkPts;
+      }
+    }
+  }
+
   return NextResponse.json({
     killerOverrides: getAllKillerOverrides(),
     gkOverrides: getAllGkOverrides(),
+    currentKillerGoals,
+    currentGkPoints,
   });
 }
 
