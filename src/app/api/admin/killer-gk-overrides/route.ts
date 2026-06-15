@@ -11,6 +11,7 @@ import {
   type GkOverride,
 } from "@/lib/score-overrides";
 import { clearStandingsCache, getStandingsCache } from "@/lib/standings-cache";
+import { getWCTopScorers, playerKey, normStr } from "@/lib/football-data-org";
 import { PARTICIPANTS } from "@/lib/participants";
 
 function isAuthorized(adminCookie: string | undefined): boolean {
@@ -19,35 +20,68 @@ function isAuthorized(adminCookie: string | undefined): boolean {
   return adminCookie === secret;
 }
 
-/** GET /api/admin/killer-gk-overrides — returns all active killer and GK overrides + current computed values */
+function goalsFromScorers(
+  scorers: Awaited<ReturnType<typeof getWCTopScorers>>,
+  playerName: string
+): number {
+  const key = playerKey(playerName);
+  const entry = scorers.find((s) => {
+    const apiKey = normStr(s.player.name);
+    const apiWords = apiKey.split(/\s+/);
+    return apiKey.includes(key) || apiWords.some((w) => w === key);
+  });
+  if (!entry) return 0;
+  return Math.max(0, entry.goals - (entry.penalties ?? 0));
+}
+
+/** GET /api/admin/killer-gk-overrides — returns overrides + current values from cache or live API */
 export async function GET() {
   const cookieStore = await cookies();
   if (!isAuthorized(cookieStore.get("porra_admin")?.value)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Build current computed values from standings cache (written by cron)
   const cache = getStandingsCache();
 
-  // killer name → goals (from first participant that has this killer in cache)
+  // If cache is available use it; otherwise fetch live scorers (CDN-cached 60s)
   const currentKillerGoals: Record<string, number> = {};
-  // gk name → total points (from first participant that has this GK in cache)
+  const currentSeleccionGoals: Record<string, number> = {};
   const currentGkPoints: Record<string, number> = {};
 
   if (cache) {
     for (const p of PARTICIPANTS) {
       const kg = cache.killerGoals[p.id];
-      if (kg && !(p.killerMundial in currentKillerGoals)) {
-        currentKillerGoals[p.killerMundial] = kg.mundialGoals;
+      if (kg) {
+        if (!(p.killerMundial in currentKillerGoals))
+          currentKillerGoals[p.killerMundial] = kg.mundialGoals;
+        if (!(p.killerSeleccion in currentSeleccionGoals))
+          currentSeleccionGoals[p.killerSeleccion] = kg.seleccionGoals;
       }
       const gkPts = cache.goalkeeperPoints[p.id];
-      if (gkPts !== undefined && !(p.goalkeeper in currentGkPoints)) {
+      if (gkPts !== undefined && !(p.goalkeeper in currentGkPoints))
         currentGkPoints[p.goalkeeper] = gkPts;
-      }
+    }
+  } else {
+    // Fallback: fetch live from scorers API (Next.js CDN-cached 60s — one request)
+    try {
+      const scorers = await getWCTopScorers(100);
+      const uniqueMundial = Array.from(new Set(PARTICIPANTS.map((p) => p.killerMundial)));
+      const uniqueSeleccion = Array.from(new Set(PARTICIPANTS.map((p) => p.killerSeleccion)));
+      for (const name of uniqueMundial) currentKillerGoals[name] = goalsFromScorers(scorers, name);
+      for (const name of uniqueSeleccion) currentSeleccionGoals[name] = goalsFromScorers(scorers, name);
+    } catch {
+      // leave as empty — admin will see 0 / missing values
     }
   }
 
   return NextResponse.json({
+    killerOverrides: getAllKillerOverrides(),
+    gkOverrides: getAllGkOverrides(),
+    currentKillerGoals,
+    currentSeleccionGoals,
+    currentGkPoints,
+  });
+}
     killerOverrides: getAllKillerOverrides(),
     gkOverrides: getAllGkOverrides(),
     currentKillerGoals,

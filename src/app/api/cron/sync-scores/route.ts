@@ -135,7 +135,8 @@ async function syncWithFootballDataOrg() {
     // ── Killer goals (full-tournament, via scorers API; admin override wins) ─
     const mundialOverride = getKillerOverride(participant.killerMundial);
     const mundialGoals = mundialOverride !== null ? mundialOverride : killerGoalsFromScorers(participant.killerMundial);
-    const seleccionGoals = killerGoalsFromScorers(participant.killerSeleccion);
+    const seleccionOverride = getKillerOverride(participant.killerSeleccion);
+    const seleccionGoals = seleccionOverride !== null ? seleccionOverride : killerGoalsFromScorers(participant.killerSeleccion);
 
     // ── GK scoring (per-match, from recent match details) ────────────────────
     for (const [internalId, fixture] of fixtureMap.entries()) {

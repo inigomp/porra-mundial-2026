@@ -24,6 +24,7 @@ export default function AdminPanel() {
   const [killerOverrides, setKillerOverrides] = useState<KillerOverride[]>([]);
   const [gkOverrides, setGkOverrides] = useState<GkOverride[]>([]);
   const [currentKillerGoals, setCurrentKillerGoals] = useState<Record<string, number>>({});
+  const [currentSeleccionGoals, setCurrentSeleccionGoals] = useState<Record<string, number>>({});
   const [currentGkPoints, setCurrentGkPoints] = useState<Record<string, number>>({});
   const [editingKiller, setEditingKiller] = useState<{ playerName: string; value: string } | null>(null);
   const [editingGk, setEditingGk] = useState<{ gkName: string; value: string } | null>(null);
@@ -58,6 +59,7 @@ export default function AdminPanel() {
         setKillerOverrides(data.killerOverrides ?? []);
         setGkOverrides(data.gkOverrides ?? []);
         setCurrentKillerGoals(data.currentKillerGoals ?? {});
+        setCurrentSeleccionGoals(data.currentSeleccionGoals ?? {});
         setCurrentGkPoints(data.currentGkPoints ?? {});
       }
     } catch {
@@ -367,7 +369,67 @@ export default function AdminPanel() {
               </tbody>
             </table>
           </div>
-          <p className="text-[#4b5563] text-xs">Solo se sobreescriben los goles del killer mundial. Se usa en lugar del dato de la API.</p>
+          <p className="text-[#4b5563] text-xs">Goles del killer mundial. Sustituye al dato de la API en el próximo cron.</p>
+
+          {/* ── Killer selección española ── */}
+          <h3 className="text-[#9ca3af] text-xs font-semibold uppercase tracking-widest pt-2">🇪🇸 Killer selección española</h3>
+          <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[#6b7280] text-xs border-b border-[#2a2d3a] bg-[#13151f]">
+                  <th className="px-4 py-2.5 text-left font-medium">Jugador (killer selección)</th>
+                  <th className="px-4 py-2.5 text-center font-medium">Goles actuales</th>
+                  <th className="px-4 py-2.5 text-center font-medium">Override</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Acción</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#2a2d3a]">
+                {Array.from(new Set(PARTICIPANTS.map((p) => p.killerSeleccion))).sort().map((selName) => {
+                  const ov = killerOverrides.find((k) => k.playerName === selName);
+                  const current = currentSeleccionGoals[selName];
+                  const isEd = editingKiller?.playerName === selName;
+                  return (
+                    <tr key={selName} className={ov ? "bg-[#ffd700]/5" : ""}>
+                      <td className="px-4 py-2 text-white text-xs">{selName}</td>
+                      <td className="px-4 py-2 text-center text-[#9ca3af] text-xs tabular-nums">
+                        {current !== undefined ? `${current} goles` : <span className="text-[#4b5563]">—</span>}
+                      </td>
+                      <td className="px-4 py-2 text-center">
+                        {isEd ? (
+                          <input type="number" min={0} max={99} value={editingKiller.value}
+                            onChange={(e) => setEditingKiller({ ...editingKiller, value: e.target.value })}
+                            className="w-14 bg-[#0f1117] border border-[#ffd700] rounded px-2 py-1 text-xs text-white text-center tabular-nums outline-none"
+                          />
+                        ) : ov ? (
+                          <span className="text-[#ffd700] font-bold text-xs">{ov.mundialGoals} goles</span>
+                        ) : (
+                          <span className="text-[#4b5563] text-xs">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {isEd ? (
+                            <>
+                              <button onClick={saveKillerOverride} disabled={saving} className="flex items-center gap-1 bg-[#00c853] text-black text-xs font-bold px-2.5 py-1 rounded hover:bg-green-400 disabled:opacity-50">
+                                <Save size={11} /> Guardar
+                              </button>
+                              <button onClick={() => { setEditingKiller(null); setStatus(""); }} className="text-[#6b7280] text-xs hover:text-white">Cancelar</button>
+                            </>
+                          ) : (
+                            <>
+                              <button onClick={() => { setEditingKiller({ playerName: selName, value: String(ov?.mundialGoals ?? "") }); setStatus(""); }} className="text-[#ffd700] text-xs hover:text-yellow-300 font-medium">Editar</button>
+                              {ov && <button onClick={() => deleteKillerOverride(selName)} className="text-red-400 hover:text-red-300"><Trash2 size={13} /></button>}
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[#4b5563] text-xs">Goles del killer de selección española. Sustituye al dato de la API en el próximo cron.</p>
         </div>
       )}
 
