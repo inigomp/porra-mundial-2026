@@ -6,6 +6,7 @@ import { buildLeaderboard, calculateParticipantScore } from "@/lib/scoring-engin
 import { PARTICIPANTS } from "@/lib/participants";
 import { getStandingsCache } from "@/lib/standings-cache";
 import { getMatchesWithLiveScores } from "@/lib/live-scores";
+import { getKillerGoalsBatch } from "@/lib/football-data-org";
 import type { Fixture, KillerGoals, StandingEntry } from "@/lib/types";
 
 const dotColor = {
@@ -20,7 +21,12 @@ async function getStandings(): Promise<StandingsWithDelta[]> {
   // ── Current standings ──────────────────────────────────────────────────────
   const cached = getStandingsCache();
 
-  const matches = await getMatchesWithLiveScores();
+  const [matches, killerGoalsMap] = await Promise.all([
+    getMatchesWithLiveScores(),
+    cached ? Promise.resolve(new Map<string, number>()) : getKillerGoalsBatch(
+      [...new Set(PARTICIPANTS.flatMap(p => [p.killerMundial, p.killerSeleccion]))]
+    ),
+  ]);
   const finishedMatches = matches.filter(
     (m) =>
       m.homeScore !== null &&
@@ -52,10 +58,13 @@ async function getStandings(): Promise<StandingsWithDelta[]> {
       ...toFixture(m),
       status: m.homeScore !== null ? ("FT" as const) : ("NS" as const),
     }));
-    const killerGoals: KillerGoals = { mundialGoals: 0, seleccionGoals: 0 };
-    const breakdowns = PARTICIPANTS.map((p) =>
-      calculateParticipantScore({ participant: p, fixtures: allFixtures, goalkeeperData: [], killerGoals })
-    );
+    const breakdowns = PARTICIPANTS.map((p) => {
+      const killerGoals: KillerGoals = {
+        mundialGoals: killerGoalsMap.get(p.killerMundial) ?? 0,
+        seleccionGoals: killerGoalsMap.get(p.killerSeleccion) ?? 0,
+      };
+      return calculateParticipantScore({ participant: p, fixtures: allFixtures, goalkeeperData: [], killerGoals });
+    });
     current = buildLeaderboard(breakdowns, allFixtures);
   }
 
@@ -68,11 +77,14 @@ async function getStandings(): Promise<StandingsWithDelta[]> {
 
   let prevRankMap = new Map<string, number>();
   if (prevMatches.length > 0) {
-    const killerGoals: KillerGoals = { mundialGoals: 0, seleccionGoals: 0 };
     const prevFixtures = prevMatches.map(toFixture);
-    const prevBreakdowns = PARTICIPANTS.map((p) =>
-      calculateParticipantScore({ participant: p, fixtures: prevFixtures, goalkeeperData: [], killerGoals })
-    );
+    const prevBreakdowns = PARTICIPANTS.map((p) => {
+      const killerGoals: KillerGoals = {
+        mundialGoals: killerGoalsMap.get(p.killerMundial) ?? 0,
+        seleccionGoals: killerGoalsMap.get(p.killerSeleccion) ?? 0,
+      };
+      return calculateParticipantScore({ participant: p, fixtures: prevFixtures, goalkeeperData: [], killerGoals });
+    });
     const prevStandings = buildLeaderboard(prevBreakdowns, prevFixtures);
     prevRankMap = new Map(prevStandings.map((s) => [s.participantId, s.rank]));
   }

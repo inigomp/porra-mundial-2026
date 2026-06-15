@@ -374,6 +374,44 @@ export async function getWCTopScorers(limit = 10): Promise<FdoScorer[]> {
   }
 }
 
+/**
+ * Returns non-penalty goals scored by a player name (porra format: "Gyökeres (SUE)")
+ * across the full WC tournament. Uses the scorers endpoint (CDN-cached, shared across
+ * all Lambda instances). Returns 0 if player not found or token unavailable.
+ */
+export async function getKillerGoals(playerName: string): Promise<number> {
+  const scorers = await getWCTopScorers(100);
+  const key = playerKey(playerName);
+  const entry = scorers.find((s) => {
+    const apiKey = normStr(s.player.name);
+    const apiWords = apiKey.split(/\s+/);
+    return apiKey.includes(key) || apiWords.some((w) => w === key);
+  });
+  if (!entry) return 0;
+  return Math.max(0, entry.goals - (entry.penalties ?? 0));
+}
+
+/**
+ * Returns non-penalty goals for multiple players in a single API call.
+ * Efficient version for when you need to look up many players at once.
+ */
+export async function getKillerGoalsBatch(
+  playerNames: string[]
+): Promise<Map<string, number>> {
+  const scorers = await getWCTopScorers(100);
+  const result = new Map<string, number>();
+  for (const name of playerNames) {
+    const key = playerKey(name);
+    const entry = scorers.find((s) => {
+      const apiKey = normStr(s.player.name);
+      const apiWords = apiKey.split(/\s+/);
+      return apiKey.includes(key) || apiWords.some((w) => w === key);
+    });
+    result.set(name, entry ? Math.max(0, entry.goals - (entry.penalties ?? 0)) : 0);
+  }
+  return result;
+}
+
 /** All finished WC matches since tournament start */
 export async function getAllFinishedWCMatches(): Promise<FdoMatchSummary[]> {
   if (!hasToken()) return [];

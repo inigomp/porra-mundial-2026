@@ -2,6 +2,8 @@ import Link from "next/link";
 import { PARTICIPANTS } from "@/lib/participants";
 import { getMatchesWithLiveScores } from "@/lib/live-scores";
 import { getMatchResult } from "@/lib/scoring-engine";
+import { getKillerGoalsBatch } from "@/lib/football-data-org";
+import { getStandingsCache } from "@/lib/standings-cache";
 
 function getMatchPoints(
   prediction: { homeGoals: number; awayGoals: number } | undefined,
@@ -44,6 +46,20 @@ export default async function ParticipantPrediccionesPage({
   }
 
   const allMatches = await getMatchesWithLiveScores();
+
+  // Fetch killer goals and GK points in parallel
+  const killerGoalsMap = await getKillerGoalsBatch([
+    participant.killerMundial,
+    participant.killerSeleccion,
+  ]);
+  const mundialGoals = killerGoalsMap.get(participant.killerMundial) ?? 0;
+  const seleccionGoals = killerGoalsMap.get(participant.killerSeleccion) ?? 0;
+  const mundialPts = mundialGoals * 2;
+  const seleccionPts = seleccionGoals * 1;
+
+  // GK points from enriched cache if available
+  const cached = getStandingsCache();
+  const gkPts = cached?.goalkeeperPoints[participant.id] ?? null;
   const matches = allMatches.filter(
     (m) =>
       !m.homeTeam.toUpperCase().includes("OCTAVO") &&
@@ -53,16 +69,17 @@ export default async function ParticipantPrediccionesPage({
   const played = matches.filter((m) => m.homeScore !== null);
   const pending = matches.filter((m) => m.homeScore === null);
 
-  let totalPts = 0;
+  let matchPts = 0;
   let exact = 0;
   played.forEach((m) => {
     const r = getMatchPoints(participant.predictions[m.id], m.homeScore, m.awayScore);
     if (r) {
-      totalPts += r.pts;
+      matchPts += r.pts;
       if (r.pts === 3) exact++;
     }
   });
 
+  const totalPts = matchPts + mundialPts + seleccionPts + (gkPts ?? 0);
   return (
     <main className="md:ml-56 mt-14 flex-1 p-4 md:p-6 space-y-6">
       {/* Header */}
@@ -98,17 +115,23 @@ export default async function ParticipantPrediccionesPage({
         <div>
           <p className="text-[#6b7280] text-xs mb-0.5">Portero</p>
           <p className="text-white text-sm font-semibold">{participant.goalkeeper}</p>
-          <p className="text-[#ffd700] text-xs mt-1 font-mono">0 pts <span className="text-[#4b5563]">· pendiente</span></p>
+          <p className="text-[#ffd700] text-xs mt-1 font-mono">
+            {gkPts !== null ? `${gkPts} pts` : <span className="text-[#4b5563]">pendiente</span>}
+          </p>
         </div>
         <div>
           <p className="text-[#6b7280] text-xs mb-0.5">Killer mundial</p>
           <p className="text-white text-sm font-semibold">{participant.killerMundial}</p>
-          <p className="text-[#ffd700] text-xs mt-1 font-mono">0 goles · 0 pts <span className="text-[#4b5563]">· pendiente</span></p>
+          <p className="text-[#ffd700] text-xs mt-1 font-mono">
+            {mundialGoals} goles · {mundialPts} pts
+          </p>
         </div>
         <div>
           <p className="text-[#6b7280] text-xs mb-0.5">Killer selección</p>
           <p className="text-white text-sm font-semibold">{participant.killerSeleccion}</p>
-          <p className="text-[#ffd700] text-xs mt-1 font-mono">0 goles · 0 pts <span className="text-[#4b5563]">· pendiente</span></p>
+          <p className="text-[#ffd700] text-xs mt-1 font-mono">
+            {seleccionGoals} goles · {seleccionPts} pts
+          </p>
         </div>
       </div>
 
