@@ -10,6 +10,7 @@ import {
   getLiveWCMatches,
   getRecentWCMatches,
   getMatchDetail,
+  getFinishedMatchDetail,
   analyzeGKEvents,
   goalsAgainstTeam,
   getWCTopScorers,
@@ -76,16 +77,22 @@ async function syncWithFootballDataOrg() {
   const playoffActuals = buildPlayoffActuals(fdoStandings, allFinishedMatches, getPlayoffActuals());
 
   const liveIds = new Set(liveMatches.map((m) => m.id));
-  // allFdoMatches: live + recent (for score/status) — used for fixtureMap
+  // allFdoMatches: live + ALL finished (not just last 2 days) — needed for full GK scoring history
   const allFdoMatches: FdoMatchSummary[] = [
     ...liveMatches,
-    ...recentMatches.filter((m) => !liveIds.has(m.id)),
+    ...allFinishedMatches.filter((m) => !liveIds.has(m.id)),
   ];
 
   const finishedOrLive = allFdoMatches.filter(
     (m) => m.status === "FINISHED" || m.status === "IN_PLAY" || m.status === "PAUSED"
   );
-  const matchDetails = await Promise.all(finishedOrLive.map((m) => getMatchDetail(m.id)));
+  // Use getFinishedMatchDetail (1h cache) for finished matches to stay within rate limits;
+  // getMatchDetail (60s cache) for live/in-progress matches.
+  const matchDetails = await Promise.all(
+    finishedOrLive.map((m) =>
+      m.status === "FINISHED" ? getFinishedMatchDetail(m.id) : getMatchDetail(m.id)
+    )
+  );
   const detailMap = new Map(
     matchDetails
       .filter((d): d is NonNullable<typeof d> => d !== null)
