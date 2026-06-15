@@ -2,7 +2,8 @@ import Link from "next/link";
 import { PARTICIPANTS } from "@/lib/participants";
 import { getMatchesWithLiveScores } from "@/lib/live-scores";
 import { getMatchResult } from "@/lib/scoring-engine";
-import { getKillerGoalsBatch } from "@/lib/football-data-org";
+import { getKillerGoalsBatch, playerKey, normStr } from "@/lib/football-data-org";
+import { getGoalkeeperPtsMap } from "@/lib/enriched-rankings";
 import { getStandingsCache } from "@/lib/standings-cache";
 
 function getMatchPoints(
@@ -47,19 +48,28 @@ export default async function ParticipantPrediccionesPage({
 
   const allMatches = await getMatchesWithLiveScores();
 
-  // Fetch killer goals and GK points in parallel
-  const killerGoalsMap = await getKillerGoalsBatch([
-    participant.killerMundial,
-    participant.killerSeleccion,
+  // Fetch killer goals and GK pts map in parallel
+  const [killerGoalsMap, gkPtsFromMatches] = await Promise.all([
+    getKillerGoalsBatch([participant.killerMundial, participant.killerSeleccion]),
+    getGoalkeeperPtsMap(),
   ]);
   const mundialGoals = killerGoalsMap.get(participant.killerMundial) ?? 0;
   const seleccionGoals = killerGoalsMap.get(participant.killerSeleccion) ?? 0;
   const mundialPts = mundialGoals * 2;
   const seleccionPts = seleccionGoals * 1;
 
-  // GK points from enriched cache if available
+  // GK points: cron cache (accurate, has lineup data) → match-list fallback (CDN-cached) → null (team hasn't played)
   const cached = getStandingsCache();
-  const gkPts = cached?.goalkeeperPoints[participant.id] ?? null;
+  function lookupGkPts(gkName: string): number | null {
+    const key = playerKey(gkName);
+    for (const [mapName, pts] of gkPtsFromMatches.entries()) {
+      const mapKey = normStr(mapName);
+      const mapWords = mapKey.split(/\s+/);
+      if (mapKey.includes(key) || mapWords.some((w) => w === key)) return pts;
+    }
+    return null;
+  }
+  const gkPts = cached?.goalkeeperPoints[participant.id] ?? lookupGkPts(participant.goalkeeper);
   const matches = allMatches.filter(
     (m) =>
       !m.homeTeam.toUpperCase().includes("OCTAVO") &&

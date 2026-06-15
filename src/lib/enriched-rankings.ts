@@ -182,3 +182,28 @@ export async function getEnrichedRankings(): Promise<EnrichedRankings> {
     return empty;
   }
 }
+
+/**
+ * Returns a Map of GK name → accumulated points for all GKs whose team has
+ * played at least one finished match. Uses only getAllFinishedWCMatches()
+ * (CDN-cached) — no per-match lineup calls needed.
+ *
+ * GKs whose team hasn't played yet won't appear in the map.
+ */
+export async function getGoalkeeperPtsMap(): Promise<Map<string, number>> {
+  try {
+    const finishedMatches = await getAllFinishedWCMatches();
+    const gkTotals = new Map<string, number>();
+    for (const match of finishedMatches) {
+      const hs = match.score.fullTime.home ?? 0;
+      const as_ = match.score.fullTime.away ?? 0;
+      const homeGK = lookupTeamGK(match.homeTeam.name);
+      const awayGK = lookupTeamGK(match.awayTeam.name);
+      if (homeGK) gkTotals.set(homeGK, (gkTotals.get(homeGK) ?? 0) + goalkeeperGoalsConcededScore(as_));
+      if (awayGK) gkTotals.set(awayGK, (gkTotals.get(awayGK) ?? 0) + goalkeeperGoalsConcededScore(hs));
+    }
+    return gkTotals;
+  } catch {
+    return new Map();
+  }
+}
