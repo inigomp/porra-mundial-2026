@@ -263,55 +263,38 @@ export default async function DirectoPage() {
   const killerHomeParticipants = homeCode ? getKillerParticipantsForCode(homeCode) : [];
   const killerAwayParticipants = awayCode ? getKillerParticipantsForCode(awayCode) : [];
 
-  // Stakes across relevant matches:
-  //   - If there are live matches: show all of them (simultaneous matches)
-  //   - If no live: show only the single most recent finished match
+  // Aggregate stakes from all relevant matches into a single section.
+  //   - If live: all IN_PLAY/PAUSED matches combined
+  //   - If none live: only the most recent finished match
   const stakesMatches = hasLive
     ? fdoMatches.filter((m) => m.status === "IN_PLAY" || m.status === "PAUSED")
     : fdoFocus ? [fdoFocus] : [];
 
-  type MatchStakes = {
-    matchLabel: string;
-    killers: Array<{ name: string; count: number; participants: string[] }>;
-    gkCards: Array<{ gkName: string; count: number; participants: string[]; side: "local" | "visitante" }>;
-  };
-  const allMatchesStakes: MatchStakes[] = [];
+  // Deduplicated killers and GK cards across all stakesMatches
+  const aggregatedKillers: Array<{ name: string; count: number; participants: string[] }> = [];
+  const aggregatedGkCards: Array<{ gkName: string; count: number; participants: string[] }> = [];
+
   for (const fdoMatch of stakesMatches) {
     const mHomeCode = getCodeFromFdo(fdoMatch.homeTeam.name);
     const mAwayCode = getCodeFromFdo(fdoMatch.awayTeam.name);
-    const mKillers: MatchStakes["killers"] = [];
     for (const code of [mHomeCode, mAwayCode]) {
       if (!code) continue;
       for (const k of getKillersForCode(code)) {
-        const pts = PARTICIPANTS.filter((p) => p.killerMundial === k.name).map((p) => p.name).sort((a, b) => a.localeCompare(b, "es"));
-        mKillers.push({ name: k.name, count: k.count, participants: pts });
+        if (aggregatedKillers.some((x) => x.name === k.name)) continue;
+        const participants = PARTICIPANTS.filter((p) => p.killerMundial === k.name).map((p) => p.name).sort((a, b) => a.localeCompare(b, "es"));
+        aggregatedKillers.push({ name: k.name, count: k.count, participants });
+      }
+      const gkName = getGkNameForCode(code);
+      if (gkName && !aggregatedGkCards.some((x) => x.gkName === gkName)) {
+        const cnt = PARTICIPANTS.filter((p) => extractCode(p.goalkeeper) === code).length;
+        if (cnt > 0) {
+          aggregatedGkCards.push({ gkName, count: cnt, participants: getGkParticipantsForCode(code) });
+        }
       }
     }
-    const mGkCards: MatchStakes["gkCards"] = [];
-    const mHomeGkName = mHomeCode ? getGkNameForCode(mHomeCode) : null;
-    const mAwayGkName = mAwayCode ? getGkNameForCode(mAwayCode) : null;
-    if (mHomeGkName) {
-      const cnt = mHomeCode ? PARTICIPANTS.filter((p) => extractCode(p.goalkeeper) === mHomeCode).length : 0;
-      if (cnt > 0) mGkCards.push({ gkName: mHomeGkName, count: cnt, participants: mHomeCode ? getGkParticipantsForCode(mHomeCode) : [], side: "local" });
-    }
-    if (mAwayGkName) {
-      const cnt = mAwayCode ? PARTICIPANTS.filter((p) => extractCode(p.goalkeeper) === mAwayCode).length : 0;
-      if (cnt > 0) mGkCards.push({ gkName: mAwayGkName, count: cnt, participants: mAwayCode ? getGkParticipantsForCode(mAwayCode) : [], side: "visitante" });
-    }
-    const hasStakes = mKillers.length > 0 || mGkCards.length > 0;
-    if (!hasStakes) continue;
-    const isLive = fdoMatch.status === "IN_PLAY" || fdoMatch.status === "PAUSED";
-    const homeName = fdoMatch.homeTeam.shortName ?? fdoMatch.homeTeam.name;
-    const awayName = fdoMatch.awayTeam.shortName ?? fdoMatch.awayTeam.name;
-    const score = fdoMatch.score.fullTime.home !== null
-      ? ` (${fdoMatch.score.fullTime.home}–${fdoMatch.score.fullTime.away})`
-      : "";
-    allMatchesStakes.push({
-      matchLabel: `${FLAG[fdoMatch.homeTeam.name] ?? "🏳️"} ${homeName}${score} vs ${FLAG[fdoMatch.awayTeam.name] ?? "🏳️"} ${awayName}${isLive ? " 🔴" : ""}`,
-      killers: mKillers,
-      gkCards: mGkCards,
-    });
   }
+
+  const hasAggregatedStakes = aggregatedKillers.length > 0 || aggregatedGkCards.length > 0;
 
   // Prediction distribution for the focus match
   const focusPreds = focusId
@@ -547,60 +530,51 @@ export default async function DirectoPage() {
       {/* ── Match insights ── */}
       {focusId && (
         <>
-          {/* Participation stats — covers ALL current/recent matches, not just focus */}
-          {allMatchesStakes.length > 0 && (
+          {/* Participation stats — aggregated across all live/recent matches */}
+          {hasAggregatedStakes && (
             <section>
               <h2 className="text-[#9ca3af] text-xs font-semibold uppercase tracking-widest mb-3">
                 En juego
               </h2>
-              {allMatchesStakes.map((ms) => (
-                <div key={ms.matchLabel} className="mb-4">
-                  {allMatchesStakes.length > 1 && (
-                    <p className="text-[#6b7280] text-xs font-semibold mb-2">{ms.matchLabel}</p>
-                  )}
 
-                  {/* GK cards */}
-                  {ms.gkCards.length > 0 && (
-                    <div className="grid grid-cols-2 gap-3 mb-3">
-                      {ms.gkCards.map((gk) => (
-                        <div key={gk.gkName} className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-4">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-base">🧤</span>
-                            <span className="text-[#9ca3af] text-xs font-semibold uppercase tracking-wide">
-                              Portero {gk.side}
-                            </span>
-                          </div>
-                          <p className="text-white font-bold text-sm truncate">{stripCode(gk.gkName)}</p>
-                          <div className="mt-1">
-                            <StakesPopover count={gk.count} names={gk.participants} label={stripCode(gk.gkName)} />
-                          </div>
-                          <p className="text-[#6b7280] text-xs">participante{gk.count !== 1 ? "s" : ""}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Killer mundial choices */}
-                  {ms.killers.length > 0 && (
-                    <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-4 mb-3">
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className="text-base">⚡</span>
-                        <span className="text-[#9ca3af] text-xs font-semibold uppercase tracking-wide">
-                          Killers del mundial en juego
-                        </span>
+              {/* GK cards */}
+              {aggregatedGkCards.length > 0 && (
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  {aggregatedGkCards.map((gk) => (
+                    <div key={gk.gkName} className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-base">🧤</span>
+                        <span className="text-[#9ca3af] text-xs font-semibold uppercase tracking-wide">Portero</span>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        {ms.killers.map((k) => (
-                          <div key={k.name} className="bg-[#2a2d3a] rounded-lg px-3 py-1.5 flex items-center gap-2">
-                            <span className="text-white text-sm font-medium">{stripCode(k.name)}</span>
-                            <StakesPopover count={k.count} names={k.participants} label={stripCode(k.name)} />
-                          </div>
-                        ))}
+                      <p className="text-white font-bold text-sm truncate">{stripCode(gk.gkName)}</p>
+                      <div className="mt-1">
+                        <StakesPopover count={gk.count} names={gk.participants} label={stripCode(gk.gkName)} />
                       </div>
+                      <p className="text-[#6b7280] text-xs">participante{gk.count !== 1 ? "s" : ""}</p>
                     </div>
-                  )}
+                  ))}
                 </div>
-              ))}
+              )}
+
+              {/* Killer mundial choices */}
+              {aggregatedKillers.length > 0 && (
+                <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-4 mb-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-base">⚡</span>
+                    <span className="text-[#9ca3af] text-xs font-semibold uppercase tracking-wide">
+                      Killers del mundial en juego
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {aggregatedKillers.map((k) => (
+                      <div key={k.name} className="bg-[#2a2d3a] rounded-lg px-3 py-1.5 flex items-center gap-2">
+                        <span className="text-white text-sm font-medium">{stripCode(k.name)}</span>
+                        <StakesPopover count={k.count} names={k.participants} label={stripCode(k.name)} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </section>
           )}
 
