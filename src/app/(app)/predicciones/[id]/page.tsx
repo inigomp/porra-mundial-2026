@@ -134,7 +134,16 @@ export default async function ParticipantPrediccionesPage({
   );
 
   const played = matches.filter((m) => m.homeScore !== null);
-  const pending = matches.filter((m) => m.homeScore === null);
+  const pending = matches
+    .filter((m) => m.homeScore === null)
+    .sort((a, b) => {
+      const da = MATCH_SCHEDULE[a.id];
+      const db = MATCH_SCHEDULE[b.id];
+      if (!da && !db) return 0;
+      if (!da) return 1;
+      if (!db) return -1;
+      return da.localeCompare(db);
+    });
 
   let matchPts = 0;
   let exact = 0;

@@ -123,7 +123,9 @@ const SPAIN_FALLBACK_FORWARDS = [
 export async function getEnrichedRankings(): Promise<EnrichedRankings> {
   const empty: EnrichedRankings = { killerMundial: [], killerSeleccion: [], topGoalkeepers: [] };
 
-  // Precompute picker counts from PARTICIPANTS (name → how many picked that player)
+  // Precompute picker counts from PARTICIPANTS.
+  // Keys are playerKey(porraName) = normalized surname without country suffix.
+  // e.g. "Simón (ESP)" → "simon", "Mbappé (FRA)" → "mbappe"
   const killerMundialCounts = new Map<string, number>();
   const killerSeleccionCounts = new Map<string, number>();
   const goalkeeperCounts = new Map<string, number>();
@@ -134,6 +136,15 @@ export async function getEnrichedRankings(): Promise<EnrichedRankings> {
     killerMundialCounts.set(km, (killerMundialCounts.get(km) ?? 0) + 1);
     killerSeleccionCounts.set(ks, (killerSeleccionCounts.get(ks) ?? 0) + 1);
     goalkeeperCounts.set(gk, (goalkeeperCounts.get(gk) ?? 0) + 1);
+  }
+
+  // FDO names are "Firstname Lastname" — pick count by matching the last word
+  // (surname) against porra keys. Falls back to full-string match if no suffix hit.
+  function pickerCount(fdoName: string, countMap: Map<string, number>): number {
+    const full = normStr(fdoName);
+    if (countMap.has(full)) return countMap.get(full)!;
+    const surname = full.split(" ").pop()!;
+    return countMap.get(surname) ?? 0;
   }
 
   try {
@@ -148,8 +159,8 @@ export async function getEnrichedRankings(): Promise<EnrichedRankings> {
       .map((s) => ({ name: s.player.name, goals: s.goals }))
       .sort((a, b) =>
         b.goals - a.goals ||
-        (killerMundialCounts.get(playerKey(b.name)) ?? 0) -
-        (killerMundialCounts.get(playerKey(a.name)) ?? 0)
+        pickerCount(b.name, killerMundialCounts) -
+        pickerCount(a.name, killerMundialCounts)
       );
 
     // ── Killer selección ─────────────────────────────────────────────────────
@@ -163,8 +174,8 @@ export async function getEnrichedRankings(): Promise<EnrichedRankings> {
           .map((s) => ({ name: s.player.name, goals: s.goals }))
           .sort((a, b) =>
             b.goals - a.goals ||
-            (killerSeleccionCounts.get(playerKey(b.name)) ?? 0) -
-            (killerSeleccionCounts.get(playerKey(a.name)) ?? 0)
+            pickerCount(b.name, killerSeleccionCounts) -
+            pickerCount(a.name, killerSeleccionCounts)
           )
           .slice(0, 5)
       : SPAIN_FALLBACK_FORWARDS.map((name) => ({ name, goals: 0 }));
@@ -184,8 +195,8 @@ export async function getEnrichedRankings(): Promise<EnrichedRankings> {
       .map(([name, pts]) => ({ name, pts }))
       .sort((a, b) =>
         b.pts - a.pts ||
-        (goalkeeperCounts.get(playerKey(b.name)) ?? 0) -
-        (goalkeeperCounts.get(playerKey(a.name)) ?? 0)
+        pickerCount(b.name, goalkeeperCounts) -
+        pickerCount(a.name, goalkeeperCounts)
       )
       .slice(0, 5);
 
