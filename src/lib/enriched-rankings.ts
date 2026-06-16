@@ -138,13 +138,17 @@ export async function getEnrichedRankings(): Promise<EnrichedRankings> {
     goalkeeperCounts.set(gk, (goalkeeperCounts.get(gk) ?? 0) + 1);
   }
 
-  // FDO names are "Firstname Lastname" — pick count by matching the last word
-  // (surname) against porra keys. Falls back to full-string match if no suffix hit.
+  // FDO names are "Firstname Lastname" — match against porra keys the same way
+  // sync-scores does: apiKey.includes(porraKey) || any word of apiKey === porraKey
   function pickerCount(fdoName: string, countMap: Map<string, number>): number {
-    const full = normStr(fdoName);
-    if (countMap.has(full)) return countMap.get(full)!;
-    const surname = full.split(" ").pop()!;
-    return countMap.get(surname) ?? 0;
+    const apiKey = normStr(fdoName);
+    const apiWords = apiKey.split(/\s+/);
+    for (const [porraKey, count] of countMap.entries()) {
+      if (apiKey.includes(porraKey) || apiWords.some((w) => w === porraKey)) {
+        return count;
+      }
+    }
+    return 0;
   }
 
   try {
