@@ -11,7 +11,7 @@
  */
 import { MATCHES } from "./participants";
 import { applyOverrides } from "./score-overrides";
-import { getLiveWCMatches, getRecentWCMatches, normStr } from "./football-data-org";
+import { getLiveWCMatches, getAllFinishedWCMatches, normStr } from "./football-data-org";
 import type { FdoMatchSummary } from "./football-data-org";
 import type { MatchWithScore } from "./types";
 
@@ -95,15 +95,15 @@ export async function getMatchesWithLiveScores(): Promise<MatchWithScore[]> {
 
   // Fetch from FDO — Next.js caches this response for 60s across all instances
   try {
-    const [liveMatches, recentMatches] = await Promise.all([
+    const [liveMatches, finishedMatches] = await Promise.all([
       getLiveWCMatches(),       // revalidate: 30s
-      getRecentWCMatches(2),    // revalidate: 60s
+      getAllFinishedWCMatches(), // revalidate: 60s — ALL finished matches
     ]);
 
     const liveIds = new Set(liveMatches.map((m) => m.id));
     const allFdo: FdoMatchSummary[] = [
       ...liveMatches,
-      ...recentMatches.filter((m) => !liveIds.has(m.id)),
+      ...finishedMatches.filter((m) => !liveIds.has(m.id)),
     ];
 
     const relevant = allFdo.filter(
