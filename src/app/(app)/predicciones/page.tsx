@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PARTICIPANTS } from "@/lib/participants";
 import { getMatchesWithLiveScores } from "@/lib/live-scores";
 import { getMatchResult } from "@/lib/scoring-engine";
+import { MATCH_SCHEDULE } from "@/lib/match-schedule";
 
 function getMatchPoints(
   prediction: { homeGoals: number; awayGoals: number } | undefined,
@@ -188,6 +189,16 @@ export default async function PrediccionesPage() {
           <div className="space-y-2">
             {pending.slice(0, 20).map((m) => {
               const pred = participant.predictions[m.id];
+              const kickoff = MATCH_SCHEDULE[m.id]
+                ? new Date(MATCH_SCHEDULE[m.id]).toLocaleString("es-ES", {
+                    timeZone: "Europe/Madrid",
+                    weekday: "short",
+                    day: "numeric",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : null;
               return (
                 <div
                   key={m.id}
@@ -197,6 +208,9 @@ export default async function PrediccionesPage() {
                     <p className="text-white text-sm font-medium truncate">
                       {m.homeTeam} vs {m.awayTeam}
                     </p>
+                    {kickoff && (
+                      <p className="text-[#6b7280] text-xs mt-0.5">{kickoff}</p>
+                    )}
                   </div>
                   <div className="text-center w-16">
                     <p className="text-[#6b7280] text-xs mb-0.5">Real</p>
@@ -207,9 +221,6 @@ export default async function PrediccionesPage() {
                     <p className="text-white font-bold text-sm">
                       {pred ? `${pred.homeGoals} – ${pred.awayGoals}` : "—"}
                     </p>
-                  </div>
-                  <div className="text-center w-20">
-                    <p className="text-[#6b7280] text-xs">Pendiente</p>
                   </div>
                 </div>
               );

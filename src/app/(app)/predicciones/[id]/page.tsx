@@ -7,6 +7,7 @@ import { getGoalkeeperPtsMap } from "@/lib/enriched-rankings";
 import { getStandingsCache } from "@/lib/standings-cache";
 import { buildPlayoffActuals } from "@/lib/playoff-actuals";
 import { PLAYOFF_SLOTS } from "@/lib/playoff-slots";
+import { MATCH_SCHEDULE } from "@/lib/match-schedule";
 import type { PlayoffSlotScore } from "@/lib/types";
 
 function getMatchPoints(
@@ -269,6 +270,16 @@ export default async function ParticipantPrediccionesPage({
           <div className="space-y-2">
             {pending.slice(0, 20).map((m) => {
               const pred = participant.predictions[m.id];
+              const kickoff = MATCH_SCHEDULE[m.id]
+                ? new Date(MATCH_SCHEDULE[m.id]).toLocaleString("es-ES", {
+                    timeZone: "Europe/Madrid",
+                    weekday: "short",
+                    day: "numeric",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : null;
               return (
                 <div
                   key={m.id}
@@ -278,6 +289,9 @@ export default async function ParticipantPrediccionesPage({
                     <p className="text-white text-sm font-medium truncate">
                       {m.homeTeam} vs {m.awayTeam}
                     </p>
+                    {kickoff && (
+                      <p className="text-[#6b7280] text-xs mt-0.5">{kickoff}</p>
+                    )}
                   </div>
                   <div className="flex items-center gap-3 sm:gap-4">
                   <div className="text-center w-16">
@@ -289,9 +303,6 @@ export default async function ParticipantPrediccionesPage({
                     <p className="text-white font-bold text-sm">
                       {pred ? `${pred.homeGoals} – ${pred.awayGoals}` : "—"}
                     </p>
-                  </div>
-                  <div className="text-center w-20">
-                    <p className="text-[#6b7280] text-xs">Pendiente</p>
                   </div>
                   </div>
                 </div>
