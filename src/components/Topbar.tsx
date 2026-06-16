@@ -36,24 +36,25 @@ export default async function Topbar() {
       <div className="flex-1" />
 
       {/* Actions */}
-      <div className="flex items-center gap-3">
-        <button className="text-[#6b7280] hover:text-white transition-colors">
+      <div className="flex items-center gap-2 md:gap-3">
+        <button className="hidden md:block text-[#6b7280] hover:text-white transition-colors">
           <Bell size={16} />
         </button>
         <ProfileSwitcher currentId={identityId ?? null} />
         {participant ? (
           <div className="flex items-center gap-2 ml-1">
-            <div className="w-7 h-7 rounded-full bg-[#ffd700] flex items-center justify-center text-black font-bold text-xs">
+            <div className="w-7 h-7 rounded-full bg-[#ffd700] flex items-center justify-center text-black font-bold text-xs flex-shrink-0">
               {initials}
             </div>
-            <span className="text-sm font-medium text-white">{displayName}</span>
+            <span className="hidden md:block text-sm font-medium text-white">{displayName}</span>
           </div>
         ) : (
           <Link
             href="/login"
             className="flex items-center gap-2 ml-1 text-[#ffd700] text-xs font-semibold hover:text-yellow-300 transition-colors"
           >
-            Seleccionar identidad
+            <span className="hidden md:inline">Seleccionar identidad</span>
+            <span className="md:hidden">Entrar</span>
           </Link>
         )}
       </div>

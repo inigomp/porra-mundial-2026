@@ -91,6 +91,8 @@ export default function DatosTable({ rows }: { rows: DatosRow[] }) {
 
   return (
     <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl overflow-hidden">
+      <div className="overflow-x-auto">
+      <div className="min-w-[640px]">
       {/* Filter row */}
       <div className="grid grid-cols-[2.5rem_1fr_1fr_1fr_1fr_1fr_1fr_1fr] gap-2 px-4 py-3 border-b border-[#2a2d3a] bg-[#13151f]">
         <div />
@@ -153,6 +155,8 @@ export default function DatosTable({ rows }: { rows: DatosRow[] }) {
             </div>
           ))
         )}
+      </div>
+      </div>
       </div>
 
       {/* Footer */}

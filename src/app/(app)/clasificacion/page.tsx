@@ -129,10 +129,8 @@ export default async function ClasificacionPage() {
       </div>
 
       <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-        <div className="min-w-[420px]">
         {/* Header */}
-        <div className="grid grid-cols-[2.5rem_1fr_4rem_3rem_3rem_4rem] gap-2 px-4 py-2.5 border-b border-[#2a2d3a] text-[#6b7280] text-xs font-semibold uppercase tracking-widest">
+        <div className="grid grid-cols-[2rem_1fr_4rem] sm:grid-cols-[2.5rem_1fr_4rem_3rem_3rem_4rem] gap-2 px-4 py-2.5 border-b border-[#2a2d3a] text-[#6b7280] text-xs font-semibold uppercase tracking-widest">
           <span>#</span>
           <span>Participante</span>
           <span className="text-right">Pts</span>
@@ -147,7 +145,7 @@ export default async function ClasificacionPage() {
           return (
             <div
               key={entry.participantId}
-              className={`grid grid-cols-[2.5rem_1fr_4rem_3rem_3rem_4rem] gap-2 px-4 py-3 border-b border-[#2a2d3a] last:border-0 items-center ${
+              className={`grid grid-cols-[2rem_1fr_4rem] sm:grid-cols-[2.5rem_1fr_4rem_3rem_3rem_4rem] gap-2 px-4 py-3 border-b border-[#2a2d3a] last:border-0 items-center ${`
                 isMe ? "bg-[#00c853]/10 border-l-2 border-l-[#00c853]" : "hover:bg-[#1e2130]"
               }`}
             >
@@ -198,8 +196,6 @@ export default async function ClasificacionPage() {
             </div>
           );
         })}
-        </div>
-        </div>
       </div>
 
       <p className="text-[#6b7280] text-xs text-center">
