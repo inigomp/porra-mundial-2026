@@ -83,8 +83,8 @@ export default async function LiveBanner() {
       (a, b) => parseInt(b.id.replace(/\D/g, "")) - parseInt(a.id.replace(/\D/g, ""))
     );
     const lastMatch = sorted[0];
-    const homeFlag = FLAG_ES[lastMatch.homeTeam] ?? "🏳️";
-    const awayFlag = FLAG_ES[lastMatch.awayTeam] ?? "🏳️";
+    const homeFlag = teamFlag(lastMatch.homeTeam);
+    const awayFlag = teamFlag(lastMatch.awayTeam);
 
     return (
       <div className="bg-[#1a1d26] border border-[#2a2d3a] rounded-xl p-4 flex items-center gap-4 flex-wrap">
@@ -113,8 +113,8 @@ export default async function LiveBanner() {
   const match = matches[0];
   const homeScore = match.score.fullTime.home ?? 0;
   const awayScore = match.score.fullTime.away ?? 0;
-  const homeFlag = FLAG[match.homeTeam.name] ?? "🏳️";
-  const awayFlag = FLAG[match.awayTeam.name] ?? "🏳️";
+  const homeFlag = teamFlag(match.homeTeam.name);
+  const awayFlag = teamFlag(match.awayTeam.name);
   const label = statusLabel(match);
   const matchIsLive = match.status === "IN_PLAY" || match.status === "PAUSED";
 

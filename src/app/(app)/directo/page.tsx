@@ -1,7 +1,7 @@
 import { getLiveWCMatches, getRecentWCMatches } from "@/lib/football-data-org";
 import type { FdoMatchSummary } from "@/lib/football-data-org";
 import { MATCHES, PARTICIPANTS } from "@/lib/participants";
-import { teamsMatch, getMatchesWithLiveScores } from "@/lib/live-scores";
+import { teamsMatch, getMatchesWithLiveScores, teamFlag } from "@/lib/live-scores";
 import {
   buildLeaderboard,
   calculateParticipantScore,
@@ -48,38 +48,6 @@ const ES_TO_CODE: Record<string, string> = {
   "Noruega": "NOR", "Argelia": "ALG", "Austria": "AUT", "Jordania": "JOR",
   "RD Congo": "COD", "Uzbekistán": "UZB", "Colombia": "COL",
   "Croacia": "CRO", "Ghana": "GHA", "Panamá": "PAN",
-};
-
-const FLAG: Record<string, string> = {
-  "Brazil": "🇧🇷", "Morocco": "🇲🇦", "France": "🇫🇷", "Spain": "🇪🇸",
-  "Germany": "🇩🇪", "Argentina": "🇦🇷", "Portugal": "🇵🇹", "Netherlands": "🇳🇱",
-  "England": "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "Japan": "🇯🇵", "Mexico": "🇲🇽", "Australia": "🇦🇺",
-  "Switzerland": "🇨🇭", "Turkey": "🇹🇷", "Ecuador": "🇪🇨", "Canada": "🇨🇦",
-  "Scotland": "🏴󠁧󠁢󠁳󠁣󠁴󠁿", "Sweden": "🇸🇪", "Tunisia": "🇹🇳",
-  "South Korea": "🇰🇷", "Korea Republic": "🇰🇷", "Czechia": "🇨🇿",
-  "South Africa": "🇿🇦", "Haiti": "🇭🇹", "United States": "🇺🇸", "USA": "🇺🇸",
-  "Ivory Coast": "🇨🇮", "Qatar": "🇶🇦", "Bosnia and Herzegovina": "🇧🇦",
-  "Curaçao": "🇨🇼", "Curacao": "🇨🇼", "Paraguay": "🇵🇾", "Belgium": "🇧🇪",
-  "Egypt": "🇪🇬", "Iran": "🇮🇷", "New Zealand": "🇳🇿", "Saudi Arabia": "🇸🇦",
-  "Uruguay": "🇺🇾", "Cape Verde": "🇨🇻", "Senegal": "🇸🇳", "Iraq": "🇮🇶",
-  "Norway": "🇳🇴", "Algeria": "🇩🇿", "Austria": "🇦🇹", "Jordan": "🇯🇴",
-  "Congo DR": "🇨🇩", "DR Congo": "🇨🇩", "Uzbekistan": "🇺🇿", "Colombia": "🇨🇴",
-  "Croatia": "🇭🇷", "Ghana": "🇬🇭", "Panama": "🇵🇦",
-};
-
-const FLAG_ES: Record<string, string> = {
-  "Brasil": "🇧🇷", "Marruecos": "🇲🇦", "Francia": "🇫🇷", "España": "🇪🇸",
-  "Alemania": "🇩🇪", "Argentina": "🇦🇷", "Portugal": "🇵🇹", "Países Bajos": "🇳🇱",
-  "Inglaterra": "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "Japón": "🇯🇵", "México": "🇲🇽", "Australia": "🇦🇺",
-  "Suiza": "🇨🇭", "Turquía": "🇹🇷", "Ecuador": "🇪🇨", "Canadá": "🇨🇦",
-  "Escocia": "🏴󠁧󠁢󠁳󠁣󠁴󠁿", "Suecia": "🇸🇪", "Túnez": "🇹🇳", "Corea del Sur": "🇰🇷",
-  "Chequia": "🇨🇿", "Sudáfrica": "🇿🇦", "Haití": "🇭🇹", "Estados Unidos": "🇺🇸",
-  "Costa de Marfil": "🇨🇮", "Catar": "🇶🇦", "Bosnia y Herzegovina": "🇧🇦",
-  "Curazao": "🇨🇼", "Paraguay": "🇵🇾", "Bélgica": "🇧🇪", "Egipto": "🇪🇬",
-  "Irán": "🇮🇷", "Nueva Zelanda": "🇳🇿", "Arabia Saudita": "🇸🇦", "Uruguay": "🇺🇾",
-  "Cabo Verde": "🇨🇻", "Senegal": "🇸🇳", "Irak": "🇮🇶", "Noruega": "🇳🇴",
-  "Argelia": "🇩🇿", "Austria": "🇦🇹", "Jordania": "🇯🇴", "RD Congo": "🇨🇩",
-  "Uzbekistán": "🇺🇿", "Colombia": "🇨🇴", "Croacia": "🇭🇷", "Ghana": "🇬🇭", "Panamá": "🇵🇦",
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -228,14 +196,14 @@ export default async function DirectoPage() {
   const focusAwayDisplay =
     upcomingStatic?.awayTeam ?? fdoFocus?.awayTeam.shortName ?? fdoFocus?.awayTeam.name ?? "";
   const focusHomeFlag = fdoFocus
-    ? (FLAG[fdoFocus.homeTeam.name] ?? "🏳️")
+    ? teamFlag(fdoFocus.homeTeam.name)
     : upcomingStatic
-    ? (FLAG_ES[upcomingStatic.homeTeam] ?? "🏳️")
+    ? teamFlag(upcomingStatic.homeTeam)
     : "🏳️";
   const focusAwayFlag = fdoFocus
-    ? (FLAG[fdoFocus.awayTeam.name] ?? "🏳️")
+    ? teamFlag(fdoFocus.awayTeam.name)
     : upcomingStatic
-    ? (FLAG_ES[upcomingStatic.awayTeam] ?? "🏳️")
+    ? teamFlag(upcomingStatic.awayTeam)
     : "🏳️";
 
   const isFocusLive =

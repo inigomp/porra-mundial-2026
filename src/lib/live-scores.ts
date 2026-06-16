@@ -17,6 +17,67 @@ import type { MatchWithScore } from "./types";
 
 export type { MatchWithScore };
 
+/**
+ * Flag emoji lookup keyed by normStr() of the team name.
+ * Covers both FDO English names and static Spanish names so
+ * the same function works for any source.
+ */
+const FLAG_MAP: Record<string, string> = {
+  "brasil": "🇧🇷", "brazil": "🇧🇷",
+  "marruecos": "🇲🇦", "morocco": "🇲🇦",
+  "francia": "🇫🇷", "france": "🇫🇷",
+  "espana": "🇪🇸", "spain": "🇪🇸",
+  "alemania": "🇩🇪", "germany": "🇩🇪",
+  "argentina": "🇦🇷",
+  "portugal": "🇵🇹",
+  "paises bajos": "🇳🇱", "netherlands": "🇳🇱",
+  "inglaterra": "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "england": "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
+  "japon": "🇯🇵", "japan": "🇯🇵",
+  "mexico": "🇲🇽",
+  "australia": "🇦🇺",
+  "suiza": "🇨🇭", "switzerland": "🇨🇭",
+  "turquia": "🇹🇷", "turkey": "🇹🇷",
+  "ecuador": "🇪🇨",
+  "canada": "🇨🇦",
+  "escocia": "🏴󠁧󠁢󠁳󠁣󠁴󠁿", "scotland": "🏴󠁧󠁢󠁳󠁣󠁴󠁿",
+  "suecia": "🇸🇪", "sweden": "🇸🇪",
+  "tunez": "🇹🇳", "tunisia": "🇹🇳",
+  "corea del sur": "🇰🇷", "south korea": "🇰🇷", "korea republic": "🇰🇷",
+  "chequia": "🇨🇿", "czechia": "🇨🇿", "czech republic": "🇨🇿",
+  "sudafrica": "🇿🇦", "south africa": "🇿🇦",
+  "haiti": "🇭🇹",
+  "estados unidos": "🇺🇸", "united states": "🇺🇸", "usa": "🇺🇸",
+  "costa de marfil": "🇨🇮", "ivory coast": "🇨🇮", "cote d'ivoire": "🇨🇮",
+  "catar": "🇶🇦", "qatar": "🇶🇦",
+  "bosnia y herzegovina": "🇧🇦", "bosnia and herzegovina": "🇧🇦", "bosnia-herzegovina": "🇧🇦",
+  "curazao": "🇨🇼", "curacao": "🇨🇼",
+  "paraguay": "🇵🇾",
+  "belgica": "🇧🇪", "belgium": "🇧🇪",
+  "egipto": "🇪🇬", "egypt": "🇪🇬",
+  "iran": "🇮🇷",
+  "nueva zelanda": "🇳🇿", "new zealand": "🇳🇿",
+  "arabia saudita": "🇸🇦", "saudi arabia": "🇸🇦",
+  "uruguay": "🇺🇾",
+  "cabo verde": "🇨🇻", "cape verde": "🇨🇻", "cape verde islands": "🇨🇻",
+  "senegal": "🇸🇳",
+  "irak": "🇮🇶", "iraq": "🇮🇶",
+  "noruega": "🇳🇴", "norway": "🇳🇴",
+  "argelia": "🇩🇿", "algeria": "🇩🇿",
+  "austria": "🇦🇹",
+  "jordania": "🇯🇴", "jordan": "🇯🇴",
+  "rd congo": "🇨🇩", "congo dr": "🇨🇩", "dr congo": "🇨🇩", "democratic republic of congo": "🇨🇩",
+  "uzbekistan": "🇺🇿",
+  "colombia": "🇨🇴",
+  "croacia": "🇭🇷", "croatia": "🇭🇷",
+  "ghana": "🇬🇭",
+  "panama": "🇵🇦",
+};
+
+/** Returns flag emoji for any team name (FDO English or static Spanish). */
+export function teamFlag(name: string): string {
+  return FLAG_MAP[normStr(name)] ?? "🏳️";
+}
+
 export function teamsMatch(fdoName: string, staticName: string): boolean {
   const fdo = normStr(fdoName);
   const sta = normStr(staticName);
