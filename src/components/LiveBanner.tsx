@@ -3,33 +3,7 @@ import type { FdoMatchSummary } from "@/lib/football-data-org";
 import { MATCHES, PARTICIPANTS } from "@/lib/participants";
 import { applyOverrides } from "@/lib/score-overrides";
 import { cookies } from "next/headers";
-import { teamsMatch } from "@/lib/live-scores";
-
-const FLAG: Record<string, string> = {
-  "Brazil": "🇧🇷", "France": "🇫🇷", "Argentina": "🇦🇷", "England": "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
-  "Spain": "🇪🇸", "Germany": "🇩🇪", "Portugal": "🇵🇹", "Netherlands": "🇳🇱",
-  "Morocco": "🇲🇦", "Japan": "🇯🇵", "USA": "🇺🇸", "Mexico": "🇲🇽",
-  "Australia": "🇦🇺", "Switzerland": "🇨🇭", "Turkey": "🇹🇷", "Ecuador": "🇪🇨",
-  "Senegal": "🇸🇳", "Croatia": "🇭🇷", "Uruguay": "🇺🇾", "Colombia": "🇨🇴",
-  "Canada": "🇨🇦", "Scotland": "🏴󠁧󠁢󠁳󠁣󠁴󠁿", "Sweden": "🇸🇪", "Tunisia": "🇹🇳",
-  "South Korea": "🇰🇷", "Czechia": "🇨🇿", "South Africa": "🇿🇦", "Haiti": "🇭🇹",
-  "Paraguay": "🇵🇾", "Ivory Coast": "🇨🇮", "Qatar": "🇶🇦", "Bosnia and Herzegovina": "🇧🇦",
-  "Curaçao": "🇨🇼", "United States": "🇺🇸", "Korea Republic": "🇰🇷",
-  "Bosnia-Herzegovina": "🇧🇦", "Chequia": "🇨🇿", "Países Bajos": "🇳🇱",
-};
-
-// Team name → flag lookup for static MATCHES (Spanish names)
-const FLAG_ES: Record<string, string> = {
-  "Brasil": "🇧🇷", "Francia": "🇫🇷", "Argentina": "🇦🇷", "Inglaterra": "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
-  "España": "🇪🇸", "Alemania": "🇩🇪", "Portugal": "🇵🇹", "Países Bajos": "🇳🇱",
-  "Marruecos": "🇲🇦", "Japón": "🇯🇵", "Estados Unidos": "🇺🇸", "México": "🇲🇽",
-  "Australia": "🇦🇺", "Suiza": "🇨🇭", "Turquía": "🇹🇷", "Ecuador": "🇪🇨",
-  "Senegal": "🇸🇳", "Croacia": "🇭🇷", "Uruguay": "🇺🇾", "Colombia": "🇨🇴",
-  "Canadá": "🇨🇦", "Escocia": "🏴󠁧󠁢󠁳󠁣󠁴󠁿", "Suecia": "🇸🇪", "Túnez": "🇹🇳",
-  "Corea del Sur": "🇰🇷", "Chequia": "🇨🇿", "Sudáfrica": "🇿🇦", "Haití": "🇭🇹",
-  "Paraguay": "🇵🇾", "Costa de Marfil": "🇨🇮", "Catar": "🇶🇦",
-  "Bosnia y Herzegovina": "🇧🇦", "Curazao": "🇨🇼",
-};
+import { teamsMatch, teamFlag } from "@/lib/live-scores";
 
 function statusLabel(m: FdoMatchSummary): string {
   if (m.status === "PAUSED") return "HT";
