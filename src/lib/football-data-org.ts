@@ -451,6 +451,30 @@ export async function getAllFinishedWCMatches(): Promise<FdoMatchSummary[]> {
   }
 }
 
+/** Get upcoming WC matches (TIMED/SCHEDULED) for the next N days */
+export async function getUpcomingWCMatches(daysAhead = 14): Promise<FdoMatchSummary[]> {
+  if (!hasToken()) return [];
+  try {
+    const now = new Date();
+    const to = new Date(now);
+    to.setDate(to.getDate() + daysAhead);
+    const dateFrom = now.toISOString().split("T")[0];
+    const dateTo = to.toISOString().split("T")[0];
+    const res = await fetch(
+      `${BASE_URL}/competitions/WC/matches?dateFrom=${dateFrom}&dateTo=${dateTo}&status=TIMED`,
+      { headers: apiHeaders(), next: { revalidate: 3600 } }
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.matches ?? []).sort(
+      (a: FdoMatchSummary, b: FdoMatchSummary) =>
+        a.utcDate.localeCompare(b.utcDate)
+    );
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Map football-data.org status to our internal Fixture status
  */

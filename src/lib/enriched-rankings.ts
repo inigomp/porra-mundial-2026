@@ -14,8 +14,10 @@ import {
   getAllFinishedWCMatches,
   getWCTopScorers,
   normStr,
+  playerKey,
 } from "./football-data-org";
 import { goalkeeperGoalsConcededScore } from "./scoring-engine";
+import { PARTICIPANTS } from "./participants";
 import type { KillerRankEntry, GkRankEntry, EnrichedRankings } from "./types";
 export type { KillerRankEntry, GkRankEntry, EnrichedRankings };
 
@@ -121,6 +123,19 @@ const SPAIN_FALLBACK_FORWARDS = [
 export async function getEnrichedRankings(): Promise<EnrichedRankings> {
   const empty: EnrichedRankings = { killerMundial: [], killerSeleccion: [], topGoalkeepers: [] };
 
+  // Precompute picker counts from PARTICIPANTS (name → how many picked that player)
+  const killerMundialCounts = new Map<string, number>();
+  const killerSeleccionCounts = new Map<string, number>();
+  const goalkeeperCounts = new Map<string, number>();
+  for (const p of PARTICIPANTS) {
+    const km = playerKey(p.killerMundial);
+    const ks = playerKey(p.killerSeleccion);
+    const gk = playerKey(p.goalkeeper);
+    killerMundialCounts.set(km, (killerMundialCounts.get(km) ?? 0) + 1);
+    killerSeleccionCounts.set(ks, (killerSeleccionCounts.get(ks) ?? 0) + 1);
+    goalkeeperCounts.set(gk, (goalkeeperCounts.get(gk) ?? 0) + 1);
+  }
+
   try {
     const [topScorers, finishedMatches] = await Promise.all([
       getWCTopScorers(100),
@@ -130,7 +145,12 @@ export async function getEnrichedRankings(): Promise<EnrichedRankings> {
     // ── Killer mundial ───────────────────────────────────────────────────────
     const killerMundial: KillerRankEntry[] = topScorers
       .slice(0, 5)
-      .map((s) => ({ name: s.player.name, goals: s.goals }));
+      .map((s) => ({ name: s.player.name, goals: s.goals }))
+      .sort((a, b) =>
+        b.goals - a.goals ||
+        (killerMundialCounts.get(playerKey(b.name)) ?? 0) -
+        (killerMundialCounts.get(playerKey(a.name)) ?? 0)
+      );
 
     // ── Killer selección ─────────────────────────────────────────────────────
     const spainScorers = topScorers.filter((s) => {
@@ -141,7 +161,11 @@ export async function getEnrichedRankings(): Promise<EnrichedRankings> {
     const killerSeleccion: KillerRankEntry[] = spainScorers.length > 0
       ? spainScorers
           .map((s) => ({ name: s.player.name, goals: s.goals }))
-          .sort((a, b) => b.goals - a.goals)
+          .sort((a, b) =>
+            b.goals - a.goals ||
+            (killerSeleccionCounts.get(playerKey(b.name)) ?? 0) -
+            (killerSeleccionCounts.get(playerKey(a.name)) ?? 0)
+          )
           .slice(0, 5)
       : SPAIN_FALLBACK_FORWARDS.map((name) => ({ name, goals: 0 }));
 
@@ -158,7 +182,11 @@ export async function getEnrichedRankings(): Promise<EnrichedRankings> {
 
     const topGoalkeepers: GkRankEntry[] = [...gkTotals.entries()]
       .map(([name, pts]) => ({ name, pts }))
-      .sort((a, b) => b.pts - a.pts || a.name.localeCompare(b.name))
+      .sort((a, b) =>
+        b.pts - a.pts ||
+        (goalkeeperCounts.get(playerKey(b.name)) ?? 0) -
+        (goalkeeperCounts.get(playerKey(a.name)) ?? 0)
+      )
       .slice(0, 5);
 
     return { killerMundial, killerSeleccion, topGoalkeepers };

@@ -3,6 +3,8 @@ import { Pencil } from "lucide-react";
 import { MATCHES, PARTICIPANTS } from "@/lib/participants";
 import { TEAM_FLAGS } from "@/lib/groups";
 import { applyOverrides } from "@/lib/score-overrides";
+import { getUpcomingWCMatches } from "@/lib/football-data-org";
+import { teamsMatch } from "@/lib/live-scores";
 
 export default async function UpcomingMatches() {
   const cookieStore = await cookies();
@@ -11,18 +13,16 @@ export default async function UpcomingMatches() {
 
   const matches = applyOverrides(MATCHES);
 
-  // Get next 6 unplayed group stage matches (exclude knockout placeholder strings)
-  const upcoming = matches
-    .filter(
-      (m) =>
-        m.homeScore === null &&
-        !m.homeTeam.toUpperCase().includes("OCTAVO") &&
-        !m.homeTeam.toUpperCase().includes("ACERTAR") &&
-        !m.homeTeam.toUpperCase().includes("CAMPE")
-    )
-    .slice(0, 6);
+  // Get unplayed group stage matches
+  const staticUpcoming = matches.filter(
+    (m) =>
+      m.homeScore === null &&
+      !m.homeTeam.toUpperCase().includes("OCTAVO") &&
+      !m.homeTeam.toUpperCase().includes("ACERTAR") &&
+      !m.homeTeam.toUpperCase().includes("CAMPE")
+  );
 
-  if (upcoming.length === 0) {
+  if (staticUpcoming.length === 0) {
     return (
       <div>
         <h2 className="font-bold text-white mb-3">Próximos Partidos</h2>
@@ -31,19 +31,49 @@ export default async function UpcomingMatches() {
     );
   }
 
+  // Fetch FDO scheduled matches to get utcDate, then merge + sort ascending
+  const fdoUpcoming = await getUpcomingWCMatches(21);
+
+  const upcomingWithDates = staticUpcoming
+    .map((m) => {
+      const fdo = fdoUpcoming.find(
+        (f) => teamsMatch(f.homeTeam.name, m.homeTeam) && teamsMatch(f.awayTeam.name, m.awayTeam)
+      );
+      return { ...m, utcDate: fdo?.utcDate ?? null };
+    })
+    .sort((a, b) => {
+      if (!a.utcDate && !b.utcDate) return 0;
+      if (!a.utcDate) return 1;
+      if (!b.utcDate) return -1;
+      return a.utcDate.localeCompare(b.utcDate);
+    })
+    .slice(0, 6);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-bold text-white">Próximos Partidos</h2>
-        <span className="text-[#6b7280] text-xs">{upcoming.length} pendientes</span>
+        <span className="text-[#6b7280] text-xs">{staticUpcoming.length} pendientes</span>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {upcoming.map((match) => {
+        {upcomingWithDates.map((match) => {
           const prediction = participant?.predictions[match.id];
           const predicted = !!prediction;
           const homeFlag = TEAM_FLAGS[match.homeTeam] ?? "🏳";
           const awayFlag = TEAM_FLAGS[match.awayTeam] ?? "🏳";
+
+          // Format date in Madrid timezone
+          const dateLabel = match.utcDate
+            ? new Date(match.utcDate).toLocaleString("es-ES", {
+                timeZone: "Europe/Madrid",
+                weekday: "short",
+                day: "numeric",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : null;
 
           return (
             <div
@@ -52,8 +82,13 @@ export default async function UpcomingMatches() {
                 predicted ? "border-[#00c853]/40" : "border-[#ffd700]/40"
               }`}
             >
-              {/* Badge */}
-              <div className="flex items-center justify-end mb-3">
+              {/* Badge + date */}
+              <div className="flex items-center justify-between mb-3">
+                {dateLabel ? (
+                  <span className="text-[10px] font-medium text-[#6b7280]">{dateLabel}</span>
+                ) : (
+                  <span />
+                )}
                 <span
                   className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                     predicted
