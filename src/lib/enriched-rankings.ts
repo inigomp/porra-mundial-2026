@@ -78,6 +78,7 @@ const TEAM_GK_MAP: Record<string, string> = {
   "saudi arabia":                 "Mohammed Al-Owais",
   "uruguay":                      "Sergio Rochet",
   "cape verde":                   "Vozinha",
+  "cape verde islands":           "Vozinha",
   "cabo verde":                   "Vozinha",
 
   // Group I — France, Senegal, Iraq, Norway

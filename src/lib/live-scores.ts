@@ -61,6 +61,7 @@ export function teamsMatch(fdoName: string, staticName: string): boolean {
     "belgium": "belgica",
     "egypt": "egipto",
     "cape verde": "cabo verde",
+    "cape verde islands": "cabo verde",
     "new zealand": "nueva zelanda",
     "iran": "iran",
     "saudi arabia": "arabia saudita",
