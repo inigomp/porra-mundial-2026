@@ -6,7 +6,8 @@ import { buildLeaderboard, calculateParticipantScore } from "@/lib/scoring-engin
 import { PARTICIPANTS } from "@/lib/participants";
 import { getStandingsCache } from "@/lib/standings-cache";
 import { getMatchesWithLiveScores } from "@/lib/live-scores";
-import { getKillerGoalsBatch, getWCStandings, getAllFinishedWCMatches } from "@/lib/football-data-org";
+import { getKillerGoalsBatch, getWCStandings, getAllFinishedWCMatches, normStr, playerKey } from "@/lib/football-data-org";
+import { getGoalkeeperPtsMap } from "@/lib/enriched-rankings";
 import { buildPlayoffActuals } from "@/lib/playoff-actuals";
 import { PLAYOFF_SLOTS } from "@/lib/playoff-slots";
 import { getPlayoffActuals } from "@/lib/score-overrides";
@@ -24,15 +25,26 @@ async function getStandings(): Promise<StandingsWithDelta[]> {
   // ── Current standings ──────────────────────────────────────────────────────
   const cached = getStandingsCache();
 
-  const [matches, killerGoalsMap, fdoStandings, allFinishedFdo] = await Promise.all([
+  const [matches, killerGoalsMap, fdoStandings, allFinishedFdo, gkPtsMap] = await Promise.all([
     getMatchesWithLiveScores(),
     cached ? Promise.resolve(new Map<string, number>()) : getKillerGoalsBatch(
       [...new Set(PARTICIPANTS.flatMap(p => [p.killerMundial, p.killerSeleccion]))]
     ),
     cached ? Promise.resolve([]) : getWCStandings(),
     cached ? Promise.resolve([]) : getAllFinishedWCMatches(),
+    cached ? Promise.resolve(new Map<string, number>()) : getGoalkeeperPtsMap(),
   ]);
   const playoffActuals = cached ? {} : buildPlayoffActuals(fdoStandings, allFinishedFdo, getPlayoffActuals());
+
+  function lookupGkPts(gkName: string): number {
+    const key = playerKey(gkName);
+    for (const [mapName, pts] of gkPtsMap.entries()) {
+      const mapKey = normStr(mapName);
+      const mapWords = mapKey.split(/\s+/);
+      if (mapKey.includes(key) || mapWords.some((w) => w === key)) return pts;
+    }
+    return 0;
+  }
   const finishedMatches = matches.filter(
     (m) =>
       m.homeScore !== null &&
@@ -69,7 +81,7 @@ async function getStandings(): Promise<StandingsWithDelta[]> {
         mundialGoals: killerGoalsMap.get(p.killerMundial) ?? 0,
         seleccionGoals: killerGoalsMap.get(p.killerSeleccion) ?? 0,
       };
-      return calculateParticipantScore({
+      const bd = calculateParticipantScore({
         participant: p,
         fixtures: allFixtures,
         goalkeeperData: [],
@@ -77,6 +89,8 @@ async function getStandings(): Promise<StandingsWithDelta[]> {
         playoffPredictions: PLAYOFF_SLOTS[p.id],
         playoffActuals,
       });
+      const gkPts = lookupGkPts(p.goalkeeper);
+      return { ...bd, totalFromGoalkeeper: gkPts, grandTotal: bd.grandTotal + gkPts };
     });
     current = buildLeaderboard(breakdowns, allFixtures);
   }
@@ -96,7 +110,7 @@ async function getStandings(): Promise<StandingsWithDelta[]> {
         mundialGoals: killerGoalsMap.get(p.killerMundial) ?? 0,
         seleccionGoals: killerGoalsMap.get(p.killerSeleccion) ?? 0,
       };
-      return calculateParticipantScore({
+      const bd = calculateParticipantScore({
         participant: p,
         fixtures: prevFixtures,
         goalkeeperData: [],
@@ -104,6 +118,8 @@ async function getStandings(): Promise<StandingsWithDelta[]> {
         playoffPredictions: PLAYOFF_SLOTS[p.id],
         playoffActuals,
       });
+      const gkPts = lookupGkPts(p.goalkeeper);
+      return { ...bd, totalFromGoalkeeper: gkPts, grandTotal: bd.grandTotal + gkPts };
     });
     const prevStandings = buildLeaderboard(prevBreakdowns, prevFixtures);
     prevRankMap = new Map(prevStandings.map((s) => [s.participantId, s.rank]));
