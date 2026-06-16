@@ -145,7 +145,7 @@ export default async function ClasificacionPage() {
           return (
             <div
               key={entry.participantId}
-              className={`grid grid-cols-[2rem_1fr_4rem] sm:grid-cols-[2.5rem_1fr_4rem_3rem_3rem_4rem] gap-2 px-4 py-3 border-b border-[#2a2d3a] last:border-0 items-center ${`
+              className={`grid grid-cols-[2rem_1fr_4rem] sm:grid-cols-[2.5rem_1fr_4rem_3rem_3rem_4rem] gap-2 px-4 py-3 border-b border-[#2a2d3a] last:border-0 items-center ${
                 isMe ? "bg-[#00c853]/10 border-l-2 border-l-[#00c853]" : "hover:bg-[#1e2130]"
               }`}
             >
