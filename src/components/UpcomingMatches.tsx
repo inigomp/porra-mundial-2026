@@ -3,8 +3,7 @@ import { Pencil } from "lucide-react";
 import { MATCHES, PARTICIPANTS } from "@/lib/participants";
 import { TEAM_FLAGS } from "@/lib/groups";
 import { applyOverrides } from "@/lib/score-overrides";
-import { getUpcomingWCMatches } from "@/lib/football-data-org";
-import { teamsMatch } from "@/lib/live-scores";
+import { MATCH_SCHEDULE } from "@/lib/match-schedule";
 
 export default async function UpcomingMatches() {
   const cookieStore = await cookies();
@@ -31,16 +30,9 @@ export default async function UpcomingMatches() {
     );
   }
 
-  // Fetch FDO scheduled matches to get utcDate, then merge + sort ascending
-  const fdoUpcoming = await getUpcomingWCMatches(21);
-
+  // Merge static schedule dates + sort ascending, take first 6
   const upcomingWithDates = staticUpcoming
-    .map((m) => {
-      const fdo = fdoUpcoming.find(
-        (f) => teamsMatch(f.homeTeam.name, m.homeTeam) && teamsMatch(f.awayTeam.name, m.awayTeam)
-      );
-      return { ...m, utcDate: fdo?.utcDate ?? null };
-    })
+    .map((m) => ({ ...m, utcDate: MATCH_SCHEDULE[m.id] ?? null }))
     .sort((a, b) => {
       if (!a.utcDate && !b.utcDate) return 0;
       if (!a.utcDate) return 1;
